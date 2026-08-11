@@ -61,6 +61,46 @@ class Convocatoria(BaseModel):
         )
 
 
+class ConvocatoriaDetalle(BaseModel):
+    """Detalle completo de una convocatoria (endpoint /convocatorias?numConv=...).
+
+    A diferencia de `Convocatoria` (resumen de búsqueda), aquí es donde
+    viven los campos estructurados que decidirán cuánto trabajo de
+    extracción con LLM hace falta en F2: si `importe`/`fecha_fin_solicitud`
+    ya vienen rellenos, no hace falta LLM para esos campos.
+    """
+
+    id: int
+    numero_convocatoria: str | None = None
+    descripcion: str
+    importe: float | None = None
+    abierto: bool | None = None
+    fecha_inicio_solicitud: date | None = None
+    fecha_fin_solicitud: date | None = None
+    tipo_convocatoria: str | None = None
+    sectores: list[str] = []
+    tipos_beneficiarios: list[str] = []
+    url_bases_reguladoras: str | None = None
+    sede_electronica: str | None = None
+
+    @classmethod
+    def from_api(cls, raw: dict[str, Any]) -> ConvocatoriaDetalle:
+        return cls(
+            id=raw["id"],
+            numero_convocatoria=raw.get("codigoBDNS"),
+            descripcion=raw.get("descripcion") or "",
+            importe=raw.get("presupuestoTotal"),
+            abierto=raw.get("abierto"),
+            fecha_inicio_solicitud=raw.get("fechaInicioSolicitud"),
+            fecha_fin_solicitud=raw.get("fechaFinSolicitud"),
+            tipo_convocatoria=raw.get("tipoConvocatoria"),
+            sectores=[s.get("descripcion", "") for s in raw.get("sectores") or []],
+            tipos_beneficiarios=[b.get("descripcion", "") for b in raw.get("tiposBeneficiarios") or []],
+            url_bases_reguladoras=raw.get("urlBasesReguladoras"),
+            sede_electronica=raw.get("sedeElectronica"),
+        )
+
+
 class BDNSClient:
     """Cliente mínimo de solo lectura sobre la API pública de BDNS."""
 
@@ -118,10 +158,13 @@ class BDNSClient:
             "page": page,
             "pageSize": page_size,
         }
+        # BDNS espera dd/mm/yyyy en estos dos parámetros (no ISO 8601, a
+        # diferencia del resto de la API) — confirmado por prueba directa:
+        # con formato ISO devuelve 400 ERR_VALIDACION.
         if fecha_desde:
-            params["fechaDesde"] = fecha_desde.isoformat()
+            params["fechaDesde"] = fecha_desde.strftime("%d/%m/%Y")
         if fecha_hasta:
-            params["fechaHasta"] = fecha_hasta.isoformat()
+            params["fechaHasta"] = fecha_hasta.strftime("%d/%m/%Y")
         if regiones:
             params["regiones"] = ",".join(str(r) for r in regiones)
         data = self._get("/convocatorias/busqueda", params)
@@ -131,3 +174,8 @@ class BDNSClient:
         """Árbol completo de regiones (NUTS) tal como lo expone BDNS."""
         data = self._get("/regiones", {})
         return data if isinstance(data, list) else data.get("content", [])
+
+    def detalle(self, numero_convocatoria: str) -> ConvocatoriaDetalle:
+        """Ficha completa de una convocatoria por su código BDNS (numeroConvocatoria)."""
+        data = self._get("/convocatorias", {"numConv": numero_convocatoria})
+        return ConvocatoriaDetalle.from_api(data)

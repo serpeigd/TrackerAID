@@ -1,3 +1,3 @@
-from trackeraid.ingestion.bdns import BDNSClient, Convocatoria
+from trackeraid.ingestion.bdns import BDNSClient, Convocatoria, ConvocatoriaDetalle
 
-__all__ = ["BDNSClient", "Convocatoria"]
+__all__ = ["BDNSClient", "Convocatoria", "ConvocatoriaDetalle"]

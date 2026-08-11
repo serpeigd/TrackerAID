@@ -12,9 +12,24 @@ import httpx
 import pytest
 import respx
 
-from trackeraid.ingestion.bdns import BDNSClient, Convocatoria
+from trackeraid.ingestion.bdns import BDNSClient, Convocatoria, ConvocatoriaDetalle
 
 BASE_URL = "https://www.infosubvenciones.es/bdnstrans/api"
+
+RAW_DETALLE = {
+    "id": 1125953,
+    "codigoBDNS": "924392",
+    "descripcion": "AYUDAS A LA ASOCIACION DE CENTROS AMBIENTALES Y GRANJAS ESCUELAS",
+    "presupuestoTotal": 75000,
+    "abierto": True,
+    "fechaInicioSolicitud": None,
+    "fechaFinSolicitud": "2026-09-30",
+    "tipoConvocatoria": "Concurrencia competitiva - canónica",
+    "sectores": [{"descripcion": "AGRICULTURA, GANADERÍA, SILVICULTURA Y PESCA", "codigo": "A"}],
+    "tiposBeneficiarios": [{"descripcion": "PERSONAS JURÍDICAS QUE NO DESARROLLAN ACTIVIDAD ECONÓMICA"}],
+    "urlBasesReguladoras": "http://example.org/bases",
+    "sedeElectronica": "www.euskadi.eus",
+}
 
 RAW_ITEM = {
     "id": 1125953,
@@ -65,7 +80,7 @@ def test_buscar_sends_expected_query_params():
     sent_params = dict(route.calls.last.request.url.params)
     assert sent_params["descripcion"] == "digitalización"
     assert sent_params["regiones"] == "55,56,57"
-    assert sent_params["fechaDesde"] == "2026-01-01"
+    assert sent_params["fechaDesde"] == "01/01/2026"  # BDNS exige dd/mm/yyyy aquí, no ISO
     assert sent_params["vpd"] == "GE"
 
 
@@ -79,6 +94,25 @@ def test_regiones_catalogo_accepts_raw_list_response():
     assert catalogo[0]["id"] == 57
 
 
+def test_convocatoria_detalle_from_api_parses_structured_fields():
+    det = ConvocatoriaDetalle.from_api(RAW_DETALLE)
+    assert det.importe == 75000
+    assert det.fecha_fin_solicitud == date(2026, 9, 30)
+    assert det.sectores == ["AGRICULTURA, GANADERÍA, SILVICULTURA Y PESCA"]
+    assert det.abierto is True
+
+
+@respx.mock
+def test_detalle_sends_num_conv_param():
+    route = respx.get(f"{BASE_URL}/convocatorias").mock(
+        return_value=httpx.Response(200, json=RAW_DETALLE)
+    )
+    client = BDNSClient(base_url=BASE_URL, vpd="GE")
+    det = client.detalle("924392")
+    assert det.id == 1125953
+    assert dict(route.calls.last.request.url.params)["numConv"] == "924392"
+
+
 @pytest.mark.integration
 def test_ultimas_contra_la_api_real():
     """Smoke test contra la API real de BDNS (no mockeada). Correr con:
@@ -88,3 +122,12 @@ def test_ultimas_contra_la_api_real():
         result = client.ultimas(page_size=5)
     assert len(result) > 0
     assert all(isinstance(c, Convocatoria) for c in result)
+
+
+@pytest.mark.integration
+def test_detalle_contra_la_api_real():
+    with BDNSClient() as client:
+        ultimas = client.ultimas(page_size=1)
+        det = client.detalle(ultimas[0].numero_convocatoria)
+    assert isinstance(det, ConvocatoriaDetalle)
+    assert det.descripcion

@@ -4,6 +4,8 @@
 
 **Estado: en construcción (F0 completada, F1 en marcha).** Este README se actualiza fase a fase — ver [roadmap](#roadmap) y [ADRs](docs/adr/).
 
+📊 [Cobertura real de campos en BDNS](docs/f1-coverage-report.md) · 📋 [Criterio de etiquetado del gold set](docs/gold-labeling-criteria.md)
+
 ## Qué hace
 
 Cada semana, `TrackerAID` ingiere las convocatorias de subvenciones publicadas en
@@ -73,7 +75,7 @@ ruff check src tests
 | Fase | Contenido | Estado |
 |---|---|---|
 | F0 | Fuentes verificadas (BDNS en vivo, ver ADR-0002) | ✅ |
-| F1 | Gold set + harness de eval (BM25/embeddings/híbrido) | 🔜 |
+| F1 | Cobertura de campos medida, criterio de etiquetado escrito, gold set y harness de eval en marcha | 🔜 |
 | F2 | Extracción estructurada + caché | ⬜ |
 | F3 | n8n + FastAPI en producción, email verificado (SPF/DKIM/DMARC) | ⬜ |
 | F4 | App pública en Lovable + consentimiento RGPD | ⬜ |
