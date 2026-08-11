@@ -14,11 +14,11 @@ htmlcov/
 .env.*
 !.env.example
 
-# Data (raw/gold datasets tracked via DVC-style pointers later, not git)
+# Data: el crudo de BDNS es grande y re-descargable, no se versiona.
+# El gold set (data/gold/) SÍ se versiona: es pequeño, curado a mano, y es
+# la evidencia de que el criterio de etiquetado se aplicó de verdad.
 data/raw/*
-data/gold/*
 !data/raw/.gitkeep
-!data/gold/.gitkeep
 
 # n8n
 n8n/.n8n/

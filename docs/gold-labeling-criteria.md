@@ -8,12 +8,25 @@ retrieval a uno solo).
 
 ## Escala
 
+**Importante — corregido tras la primera pasada de muestreo real:** el
+gold set etiqueta **relevancia temática** (¿es del tipo de ayuda que le
+interesa a este perfil, sin importar si hoy está abierta?), no
+disponibilidad en tiempo real. Se probó exigir `abierto=true` para
+relevancia 2 y, sobre 450 candidatas encontradas con búsqueda dirigida a
+términos empresariales (pymes, autónomos, digitalización, IVACE...), solo
+**4 seguían abiertas en el momento de la prueba** frente a 90 que sí eran
+temáticamente relevantes. Exigir apertura habría dejado el gold set casi
+vacío de positivos y habría medido "¿tengo suerte con el timing?" en vez
+de "¿el retrieval encuentra lo relevante?". `abierto` se queda como
+columna informativa (`data/gold/candidates.csv`) y es el filtro que sí
+aplica el pipeline de producto (F3) antes de mandar el digest — pero es
+un filtro posterior al retrieval, no parte de la etiqueta de relevancia.
+
 **2 — Relevante.** La convocatoria concede ayuda económica directa a
 autónomos o pymes (inversión, digitalización, contratación, I+D+i,
 internacionalización, eficiencia energética, comercio, hostelería,
 agricultura profesional...), el perfil encaja en el tipo de beneficiario
-exigido, el ámbito geográfico incluye la Comunitat Valenciana, y sigue
-`abierto=true` en el momento de etiquetar.
+exigido, y el ámbito geográfico incluye la Comunitat Valenciana.
 
 **1 — Parcialmente relevante.** Cumple el criterio de "2" salvo uno de
 estos matices:
@@ -21,9 +34,6 @@ estos matices:
   sin restringir sector) — relevante pero menos específico.
 - Ámbito nacional/estatal que incluye la CV pero no está pensado para
   ella en particular.
-- Ya cerrada (`abierto=false`) pero de un organismo/línea que convoca
-  todos los años — útil como señal de "vigila esta línea", no como
-  oportunidad inmediata.
 
 **0 — No relevante.** Cualquiera de estos casos, todos observados ya en
 la muestra real:
@@ -35,6 +45,12 @@ la muestra real:
 - Ámbito fuera de la Comunitat Valenciana.
 - Beca o ayuda a estudiantes/investigadores individuales sin vínculo con
   actividad empresarial.
+- Premio, certamen o concurso (aunque liste "pyme" como categoría de
+  participante posible en el catálogo de beneficiarios) — no es ayuda
+  económica a la actividad empresarial, es un reconocimiento con premio.
+  Encontrado en la primera pasada de muestreo: varios "Certamen
+  Gastronómico"/"Premios Ciudad de..." etiquetan PYME como beneficiario
+  sin serlo en la práctica.
 
 ## Proceso
 
