@@ -15,7 +15,7 @@ Códigos de región (catálogo `/regiones`, rama ES52 - Comunitat Valenciana):
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, Self
 
 import httpx
 from pydantic import BaseModel
@@ -69,7 +69,7 @@ class BDNSClient:
         self.vpd = vpd or settings.bdns_vpd
         self._client = httpx.Client(base_url=self.base_url, timeout=timeout)
 
-    def __enter__(self) -> BDNSClient:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: object) -> None:
