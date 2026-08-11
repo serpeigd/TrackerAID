@@ -161,7 +161,9 @@ def main() -> None:
                 print(f"  [{i}/{len(resumenes)}] procesadas")
             time.sleep(0.15)
 
-    with OUT.open("w", encoding="utf-8", newline="") as f:
+    # utf-8-sig (BOM): sin él, Excel en Windows abre el CSV interpretando
+    # los acentos mal (mojibake) aunque el archivo sea UTF-8 válido.
+    with OUT.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(filas[0].keys()))
         writer.writeheader()
         writer.writerows(filas)

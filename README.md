@@ -45,7 +45,7 @@ BDNS API ──▶ ingestion (Python) ──▶ Postgres/pgvector (Supabase)
 - **Núcleo**: Python (FastAPI + retrieval/extraction), tests + CI.
 - **Datos**: Postgres con pgvector en Supabase, RLS por usuario.
 - **Orquestación**: n8n autoalojado en Docker (cron semanal, llama a la API).
-- **Producto**: app en Lovable (alta, perfil, feedback) + landing con secciones generadas con prompts de motionsites.ai.
+- **Producto**: app en Lovable (alta, perfil, feedback) + landing con secciones generadas con prompts de motionsites.ai. Repo: [trackeraid-onboarding-pro](https://github.com/serpeigd/trackeraid-onboarding-pro) (privado por ahora — se abre en F5).
 - **Embeddings**: locales (multilingual-e5 / bge-m3), en batch. LLM solo para extracción estructurada del top-N, con caché por hash y presupuesto mensual duro.
 
 Decisiones documentadas en detalle: [ADR-0001](docs/adr/0001-record-architecture-decisions.md) · [ADR-0002 (fuente única BDNS)](docs/adr/0002-fuente-unica-bdns.md) · [ADR-0003 (lógica en Python)](docs/adr/0003-logica-en-python-no-en-n8n.md).

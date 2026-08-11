@@ -36,7 +36,7 @@ QUERY_GENERICA = (
 
 
 def cargar_corpus_y_relevancias() -> tuple[list[Documento], dict[int, int], bool]:
-    with CANDIDATES.open(encoding="utf-8") as f:
+    with CANDIDATES.open(encoding="utf-8-sig") as f:  # el CSV lleva BOM (para Excel)
         rows = list(csv.DictReader(f))
 
     usa_provisional = not any(r["relevance"].strip() for r in rows)
