@@ -59,7 +59,7 @@ El repo trata la calidad de retrieval como algo que se mide, no se asume:
 - CI que falla si nDCG@10 cae por debajo de un umbral respecto al baseline.
 - Página pública de métricas que se regenera sola cada semana (F7).
 
-Baseline BM25 implementado y testeado (`src/trackeraid/retrieval/`, `python scripts/run_eval.py`). Embeddings e híbrido, pendientes. La tabla de ablación real se publica en cuanto `data/gold/candidates.csv` tenga la columna `relevance` revisada a mano — hasta entonces el script avisa explícitamente que corre sobre etiquetas heurísticas provisionales.
+Baseline BM25 implementado, testeado y con **[resultados reales sobre gold set etiquetado a mano](docs/f1-eval-results.md)** (169 pares confirmados, no heurísticos): precision@5=1.00, nDCG@20=0.905, recall@20=0.25 — este último es el número a mejorar con embeddings, siguiente paso.
 
 ## Desarrollo
 
