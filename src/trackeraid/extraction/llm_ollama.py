@@ -48,8 +48,13 @@ def extraer_plazo_llm(
     texto: str,
     fecha_referencia: date | None = None,
     model: str = DEFAULT_MODEL,
-    timeout: float = 30.0,
+    timeout: float = 90.0,
 ) -> RespuestaLLM:
+    """Timeout por defecto generoso (90s): la primera llamada a un modelo que
+    Ollama no tiene cargado en memoria puede tardar bastante en "despertar";
+    las siguientes, con el modelo ya caliente, son mucho más rápidas. Un
+    pipeline en producción debería precalentar el modelo antes del lote
+    (ver `calentar_modelo` más abajo) para no pagar esa espera en cada item."""
     prompt = _PROMPT.format(
         fecha_referencia=fecha_referencia.isoformat() if fecha_referencia else "desconocida",
         texto=texto,
@@ -74,3 +79,14 @@ def extraer_plazo_llm(
         # El modelo no devolvió JSON válido: se trata como "no resuelto" en
         # vez de fallar el pipeline entero por una respuesta rara del LLM.
         return RespuestaLLM(fecha_fin=None, sin_plazo=False)
+
+
+def calentar_modelo(model: str = DEFAULT_MODEL, timeout: float = 120.0) -> None:
+    """Fuerza a Ollama a cargar el modelo en memoria antes de procesar un
+    lote, para no pagar el "arranque en frío" (hasta ~1 min con llama3.1:8b
+    en un PC normal) en la primera convocatoria del lote — solo en la
+    primera llamada real, silenciosa, no en cada item."""
+    try:
+        httpx.post(OLLAMA_URL, json={"model": model, "prompt": "hola", "stream": False}, timeout=timeout)
+    except httpx.HTTPError as e:
+        raise OllamaNoDisponibleError(f"No se pudo precalentar el modelo '{model}': {e}") from e

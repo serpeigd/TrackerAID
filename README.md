@@ -2,9 +2,9 @@
 
 > Radar semántico de subvenciones públicas para autónomos y pymes de la Comunitat Valenciana.
 
-**Estado: en construcción (F0 completada, F1 en marcha).** Este README se actualiza fase a fase — ver [roadmap](#roadmap) y [ADRs](docs/adr/).
+**Estado: en construcción (F0 y F1 completadas, F2 en marcha).** Este README se actualiza fase a fase — ver [roadmap](#roadmap) y [ADRs](docs/adr/).
 
-📊 [Cobertura real de campos en BDNS](docs/f1-coverage-report.md) · 📋 [Criterio de etiquetado del gold set](docs/gold-labeling-criteria.md)
+📊 [Cobertura real de campos en BDNS](docs/f1-coverage-report.md) · 📋 [Criterio de etiquetado del gold set](docs/gold-labeling-criteria.md) · 📈 [Resultados de eval (BM25)](docs/f1-eval-results.md) · 🗓️ [Cobertura de extracción de plazo](docs/f2-deadline-coverage.md)
 
 ## Qué hace
 
@@ -75,8 +75,8 @@ ruff check src tests
 | Fase | Contenido | Estado |
 |---|---|---|
 | F0 | Fuentes verificadas (BDNS en vivo, ver ADR-0002) | ✅ |
-| F1 | Cobertura de campos medida, criterio de etiquetado escrito, gold set y harness de eval en marcha | 🔜 |
-| F2 | Extracción estructurada + caché | ⬜ |
+| F1 | Cobertura de campos medida, gold set completo (443/450), baseline BM25 evaluado | ✅ |
+| F2 | Extracción de plazo (regex + LLM local, sin coste, 91.3% resuelto) | 🔜 |
 | F3 | n8n + FastAPI en producción, email verificado (SPF/DKIM/DMARC) | ⬜ |
 | F4 | App pública en Lovable + consentimiento RGPD | ⬜ |
 | F5 | Lanzamiento con usuarios reales | ⬜ |
