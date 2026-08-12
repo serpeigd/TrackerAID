@@ -102,6 +102,15 @@ def test_convocatoria_detalle_from_api_parses_structured_fields():
     assert det.abierto is True
 
 
+def test_convocatoria_detalle_parses_texto_fin_cuando_no_hay_fecha_estructurada():
+    raw = {**RAW_DETALLE, "fechaFinSolicitud": None, "textInicio": "a partir del día siguiente",
+           "textFin": "HASTA EL 31 DE OCTUBRE DE 2026", "fechaRecepcion": "2026-08-01"}
+    det = ConvocatoriaDetalle.from_api(raw)
+    assert det.fecha_fin_solicitud is None
+    assert det.texto_fin == "HASTA EL 31 DE OCTUBRE DE 2026"
+    assert det.fecha_recepcion == date(2026, 8, 1)
+
+
 @respx.mock
 def test_detalle_sends_num_conv_param():
     route = respx.get(f"{BASE_URL}/convocatorias").mock(

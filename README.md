@@ -59,7 +59,7 @@ El repo trata la calidad de retrieval como algo que se mide, no se asume:
 - CI que falla si nDCG@10 cae por debajo de un umbral respecto al baseline.
 - Página pública de métricas que se regenera sola cada semana (F7).
 
-Baseline BM25 implementado, testeado y con **[resultados reales sobre gold set etiquetado a mano](docs/f1-eval-results.md)** (169 pares confirmados, no heurísticos): precision@5=1.00, nDCG@20=0.905, recall@20=0.25 — este último es el número a mejorar con embeddings, siguiente paso.
+Baseline BM25 implementado, testeado y con **[resultados reales sobre gold set etiquetado a mano](docs/f1-eval-results.md)** (443 de 450 pares confirmados, no heurísticos): MRR=1.00, precision@20=0.95, recall@20=0.153 — este último es el número a mejorar con embeddings, siguiente paso.
 
 ## Desarrollo
 

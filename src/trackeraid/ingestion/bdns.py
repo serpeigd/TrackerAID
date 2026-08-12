@@ -77,6 +77,14 @@ class ConvocatoriaDetalle(BaseModel):
     abierto: bool | None = None
     fecha_inicio_solicitud: date | None = None
     fecha_fin_solicitud: date | None = None
+    # `textoInicio`/`textoFin` (BDNS: textInicio/textFin): texto libre con el
+    # plazo cuando no viene como fecha estructurada — p.ej. "HASTA EL 31 DE
+    # OCTUBRE DE 2026", "Sin plazo de solicitud" o "15 días hábiles a partir
+    # de...". Es la clave de F2: antes de tirar de LLM o PDF, este campo ya
+    # resuelve una parte relevante del hueco que dejaba fecha_fin_solicitud.
+    texto_inicio: str | None = None
+    texto_fin: str | None = None
+    fecha_recepcion: date | None = None
     tipo_convocatoria: str | None = None
     sectores: list[str] = []
     tipos_beneficiarios: list[str] = []
@@ -93,6 +101,9 @@ class ConvocatoriaDetalle(BaseModel):
             abierto=raw.get("abierto"),
             fecha_inicio_solicitud=raw.get("fechaInicioSolicitud"),
             fecha_fin_solicitud=raw.get("fechaFinSolicitud"),
+            texto_inicio=raw.get("textInicio"),
+            texto_fin=raw.get("textFin"),
+            fecha_recepcion=raw.get("fechaRecepcion"),
             tipo_convocatoria=raw.get("tipoConvocatoria"),
             sectores=[s.get("descripcion", "") for s in raw.get("sectores") or []],
             tipos_beneficiarios=[b.get("descripcion", "") for b in raw.get("tiposBeneficiarios") or []],
