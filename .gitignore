@@ -24,6 +24,9 @@ data/raw/*
 n8n/.n8n/
 n8n/data/
 
+# Estado interno de la sesión de Claude Code — no es código del proyecto
+.claude/
+
 # OS / editor
 .DS_Store
 Thumbs.db

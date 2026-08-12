@@ -1,0 +1,26 @@
+# n8n autoalojado, local, para el cron semanal de F3.
+#
+# Uso:
+#   cd n8n && docker compose up -d
+#   abrir http://localhost:5678
+#
+# n8n solo ORQUESTA (dispara el cron y llama a la API) — la lógica de
+# negocio vive en trackeraid.pipeline, nunca en un nodo de n8n
+# (ver docs/adr/0003-logica-en-python-no-en-n8n.md).
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: trackeraid-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - GENERIC_TIMEZONE=Europe/Madrid
+      - TZ=Europe/Madrid
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:
