@@ -23,6 +23,10 @@ class Settings:
     bdns_vpd: str = os.getenv("BDNS_VPD", "GE")
     database_url: str = os.getenv("DATABASE_URL", "")
     llm_monthly_budget_eur: float = float(os.getenv("LLM_MONTHLY_BUDGET_EUR", "5"))
+    supabase_url: str = os.getenv("SUPABASE_URL", "")
+    supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    ollama_url: str = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
+    ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 
 settings = Settings()

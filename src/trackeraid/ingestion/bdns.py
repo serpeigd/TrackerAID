@@ -88,6 +88,7 @@ class ConvocatoriaDetalle(BaseModel):
     tipo_convocatoria: str | None = None
     sectores: list[str] = []
     tipos_beneficiarios: list[str] = []
+    regiones: list[str] = []
     url_bases_reguladoras: str | None = None
     sede_electronica: str | None = None
 
@@ -107,6 +108,7 @@ class ConvocatoriaDetalle(BaseModel):
             tipo_convocatoria=raw.get("tipoConvocatoria"),
             sectores=[s.get("descripcion", "") for s in raw.get("sectores") or []],
             tipos_beneficiarios=[b.get("descripcion", "") for b in raw.get("tiposBeneficiarios") or []],
+            regiones=[r.get("descripcion", "") for r in raw.get("regiones") or []],
             url_bases_reguladoras=raw.get("urlBasesReguladoras"),
             sede_electronica=raw.get("sedeElectronica"),
         )
