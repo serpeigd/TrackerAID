@@ -120,13 +120,45 @@ curl http://localhost:8000/pipeline/status
 # -> {"estado": "completado", "resumen": {...}, ...}
 ```
 
+## 5. Encender y apagar el stack solo cuando toca
+
+Docker Desktop en reposo consume ~1-2 GB de RAM (la VM de WSL2 de debajo)
+aunque no haya nada corriendo — no compensa dejarlo abierto toda la
+semana para un cron que solo dispara una vez. `scripts/start-pipeline-stack.ps1`
+y `scripts/stop-pipeline-stack.ps1` arrancan/paran Docker Desktop + n8n +
+Ollama + la API de TrackerAID de un tirón.
+
+**No puede hacerse desde dentro del propio workflow de n8n** — n8n corre
+*dentro* de Docker, así que no puede arrancar Docker antes de que exista.
+La forma robusta es que el Programador de tareas de Windows controle el
+ciclo completo, por fuera:
+
+1. **Tarea "arrancar"**: la que ya tienes programada (domingo 23:00) — solo
+   tienes que apuntar su Acción a
+   `powershell.exe -File "<ruta-del-repo>\scripts\start-pipeline-stack.ps1"`.
+2. **Tarea "apagar"** (nueva, hay que crearla): mismo patrón, lunes a una
+   hora con margen tras el cron de las 6:00 (por ejemplo 07:00 — el
+   workflow tarda como mucho la espera de 10 min + lo que dure el lote),
+   apuntando a `stop-pipeline-stack.ps1`.
+
+Para que la tarea del domingo despierte el PC si está en suspensión (no
+apagado — Task Scheduler no puede encender un PC apagado del todo), marca
+la casilla **"Wake the computer to run this task"** en la pestaña
+*Conditions* de la tarea.
+
+Prueba cada script a mano primero (`powershell -File scripts\start-pipeline-stack.ps1`)
+antes de fiarte de que el Programador de tareas los dispare solo.
+
 ## Pendiente (no bloquea el MVP)
 
-- **Máquina siempre encendida**: mientras el cron dependa de tu PC con
-  Docker + Ollama corriendo, el pipeline solo se ejecuta si tu equipo está
-  encendido a esa hora. Para producción real (F5) hará falta un host
-  siempre activo — pospuesto a propósito, no es necesario para probar el
-  pipeline de punta a punta ahora.
+- **Máquina siempre encendida**: aunque el arranque/apagado ya esté
+  automatizado (ver arriba), el pipeline sigue dependiendo de que tu PC
+  esté encendido o en suspensión ese domingo por la noche — si está
+  apagado del todo, no hay cron que valga. Para producción real (F5) hará
+  falta un host siempre activo (Railway/Fly.io free tier, o sustituir el
+  Schedule Trigger de n8n por un cron de GitHub Actions) — pospuesto a
+  propósito, no es necesario para probar el pipeline de punta a punta
+  ahora.
 - **Autenticación del endpoint**: `/pipeline/ingest` no tiene ninguna
   protección todavía (cualquiera que alcance el puerto 8000 puede
   dispararlo). Aceptable mientras corre solo en local; añadir una API key
