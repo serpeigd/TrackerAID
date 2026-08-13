@@ -5,7 +5,7 @@
 # domingo a las 23:00, para que a las 6:00 del lunes (el Schedule Trigger
 # de n8n) todo esté listo. Homólogo de stop-pipeline-stack.ps1.
 #
-# Uso manual: powershell -File scripts\start-pipeline-stack.ps1
+# Uso manual: powershell -ExecutionPolicy Bypass -File scripts\start-pipeline-stack.ps1
 
 $ErrorActionPreference = "Stop"
 

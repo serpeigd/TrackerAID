@@ -8,7 +8,7 @@
 # normal, a las 7:00 ya debería haber terminado; ajusta la hora del
 # trigger si tus lotes son más grandes.
 #
-# Uso manual: powershell -File scripts\stop-pipeline-stack.ps1
+# Uso manual: powershell -ExecutionPolicy Bypass -File scripts\stop-pipeline-stack.ps1
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 

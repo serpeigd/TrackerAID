@@ -5,6 +5,7 @@
 #
 # Uso:
 #   powershell -ExecutionPolicy Bypass -File scripts\run-pipeline-once.ps1
+#Para lote pequeño uso:
 #   powershell -ExecutionPolicy Bypass -File scripts\run-pipeline-once.ps1 -MaxConvocatorias 20
 #
 # No hay una "espera fija de 15-60 min": se consulta /pipeline/status cada
