@@ -107,7 +107,18 @@ Copia este email entero y pégaselo a Claude: "lee este error y corrígelo".
 
 ## 4. Probar sin esperar al lunes
 
-Botón **Execute workflow** en n8n, o a mano en dos pasos:
+Todo en un comando (arranca el stack, lanza la ingesta, espera a que
+termine consultando `/pipeline/status` cada 30s, y lo apaga todo al
+acabar):
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts\run-pipeline-once.ps1
+# con parámetros, p.ej. un lote pequeño de prueba:
+powershell -ExecutionPolicy Bypass -File scripts\run-pipeline-once.ps1 -MaxConvocatorias 20
+```
+
+O el botón **Execute workflow** en n8n (con el stack ya arrancado a mano),
+o los dos pasos sueltos si prefieres controlarlo tú:
 
 ```bash
 curl -X POST http://localhost:8000/pipeline/ingest \
@@ -120,34 +131,29 @@ curl http://localhost:8000/pipeline/status
 # -> {"estado": "completado", "resumen": {...}, ...}
 ```
 
-## 5. Encender y apagar el stack solo cuando toca
+## 5. Encender y apagar el stack
 
 Docker Desktop en reposo consume ~1-2 GB de RAM (la VM de WSL2 de debajo)
 aunque no haya nada corriendo — no compensa dejarlo abierto toda la
-semana para un cron que solo dispara una vez. `scripts/start-pipeline-stack.ps1`
-y `scripts/stop-pipeline-stack.ps1` arrancan/paran Docker Desktop + n8n +
-Ollama + la API de TrackerAID de un tirón.
+semana para un cron que solo dispara una vez. Tres scripts en `scripts/`
+para esto, pensados para ejecutarse **a mano, cuando quieras** (decisión
+consciente: de momento sin Programador de tareas de Windows automático):
+
+- `run-pipeline-once.ps1` — el de arriba, todo en un comando.
+- `start-pipeline-stack.ps1` / `stop-pipeline-stack.ps1` — sueltos, por si
+  quieres dejar el stack arriba un rato para trastear en la UI de n8n en
+  vez de un único ciclo completo.
 
 **No puede hacerse desde dentro del propio workflow de n8n** — n8n corre
 *dentro* de Docker, así que no puede arrancar Docker antes de que exista.
-La forma robusta es que el Programador de tareas de Windows controle el
-ciclo completo, por fuera:
+Por eso el arranque/apagado vive en scripts de PowerShell fuera del
+contenedor, no en un nodo del workflow.
 
-1. **Tarea "arrancar"**: la que ya tienes programada (domingo 23:00) — solo
-   tienes que apuntar su Acción a
-   `powershell.exe -File "<ruta-del-repo>\scripts\start-pipeline-stack.ps1"`.
-2. **Tarea "apagar"** (nueva, hay que crearla): mismo patrón, lunes a una
-   hora con margen tras el cron de las 6:00 (por ejemplo 07:00 — el
-   workflow tarda como mucho la espera de 10 min + lo que dure el lote),
-   apuntando a `stop-pipeline-stack.ps1`.
-
-Para que la tarea del domingo despierte el PC si está en suspensión (no
-apagado — Task Scheduler no puede encender un PC apagado del todo), marca
-la casilla **"Wake the computer to run this task"** en la pestaña
-*Conditions* de la tarea.
-
-Prueba cada script a mano primero (`powershell -File scripts\start-pipeline-stack.ps1`)
-antes de fiarte de que el Programador de tareas los dispare solo.
+Si en el futuro quieres automatizarlo del todo con el Programador de
+tareas de Windows (para que el cron de n8n dispare solo, sin que tengas
+que acordarte de lanzar nada), hay un cuarto script ya preparado para
+eso: `scripts/register-scheduled-tasks.ps1` — de momento sin usar, a
+propósito.
 
 ## Pendiente (no bloquea el MVP)
 
