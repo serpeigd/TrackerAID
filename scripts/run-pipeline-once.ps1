@@ -3,10 +3,10 @@
 # todo. Pensado para ejecutarlo tú a mano cuando quieras probar el
 # pipeline completo, sin tocar el Programador de tareas de Windows.
 #
-# Uso:
-#   powershell -ExecutionPolicy Bypass -File scripts\run-pipeline-once.ps1
-#Para lote pequeño uso:
-#   powershell -ExecutionPolicy Bypass -File scripts\run-pipeline-once.ps1 -MaxConvocatorias 20
+# Uso (ejecutar desde dentro de la carpeta scripts\):
+#   powershell -ExecutionPolicy Bypass -File run-pipeline-once.ps1
+# Para un lote pequeño de prueba:
+#   powershell -ExecutionPolicy Bypass -File run-pipeline-once.ps1 -MaxConvocatorias 20
 #
 # No hay una "espera fija de 15-60 min": se consulta /pipeline/status cada
 # 30s y se corta en cuanto termina (completado o error). MaxWaitMinutes es

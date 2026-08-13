@@ -109,12 +109,13 @@ Copia este email entero y pégaselo a Claude: "lee este error y corrígelo".
 
 Todo en un comando (arranca el stack, lanza la ingesta, espera a que
 termine consultando `/pipeline/status` cada 30s, y lo apaga todo al
-acabar):
+acabar). Ejecuta esto desde dentro de la carpeta `scripts\`:
 
 ```bash
-powershell -ExecutionPolicy Bypass -File scripts\run-pipeline-once.ps1
+cd scripts
+powershell -ExecutionPolicy Bypass -File run-pipeline-once.ps1
 # con parámetros, p.ej. un lote pequeño de prueba:
-powershell -ExecutionPolicy Bypass -File scripts\run-pipeline-once.ps1 -MaxConvocatorias 20
+powershell -ExecutionPolicy Bypass -File run-pipeline-once.ps1 -MaxConvocatorias 20
 ```
 
 O el botón **Execute workflow** en n8n (con el stack ya arrancado a mano),
