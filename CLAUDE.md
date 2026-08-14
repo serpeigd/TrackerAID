@@ -57,9 +57,11 @@ PowerShell, atados al entorno de desarrollo actual.
 
 ## Sobre la tarea programada de sincronización de docs
 
-- **No hay autorización permanente para mergear ni cerrar PRs en este repo.** El
-  2026-08-13 Sergio mandó mergear la PR de ese día, pero fue una instrucción
-  puntual, no un permiso general. Abre la PR y espera, salvo que te diga otra cosa.
+- **Autorización permanente para mergear PRs solo-documentación de esa tarea
+  (2026-08-14, decisión explícita en chat), en cuanto el CI esté verde.** Mismo
+  listón que cualquier merge, solo que sin paso de confirmación, y solo para
+  este caso concreto: cambios en README/`docs/`, nunca en código de producto.
+  Si algún check falla, no mergees — avisa con el motivo.
 - Esa ejecución corre en una rama nueva con nombre aleatorio cada vez, así que
   una PR de un run anterior nunca se reutiliza sola. Antes de abrir otra,
   comprueba si ya hay una PR de docs abierta: si la hay, incorpora lo que siga
