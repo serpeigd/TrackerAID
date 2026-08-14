@@ -19,6 +19,12 @@ perfil de negocio → email semanal con feedback 👍/👎 que reentrena el rank
   LLM local (Ollama). `ANTHROPIC_API_KEY` existe en `.env.example` solo para
   comparar calidad/coste; el pipeline no la necesita. Antes de meter cualquier
   servicio de pago, pregunta.
+- **Sé breve (2026-08-13, petición explícita en chat).** Demasiado texto y demasiadas
+  explicaciones. Empieza por la respuesta o por el cambio; el razonamiento solo si
+  cambia una decisión. No resumas trabajo que ya se ve en el diff, no repitas la
+  pregunta antes de contestarla, y no cierres con una frase-conclusión. Aplica al
+  chat, a los mensajes de commit y a los cuerpos de PR. Los documentos de referencia
+  (README, este archivo) pueden ser largos, pero solo donde la extensión se gane.
 
 ## Ninguna cifra sin denominador
 
