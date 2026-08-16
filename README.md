@@ -8,7 +8,7 @@
 
 **Estado: en construcción (F0, F1 y F2 completadas; F3 en marcha).** Este README se actualiza fase a fase — ver [roadmap](#roadmap) y [ADRs](docs/adr/).
 
-📊 [Cobertura real de campos en BDNS](docs/f1-coverage-report.md) · 📋 [Criterio de etiquetado del gold set](docs/gold-labeling-criteria.md) · 📈 [Resultados de eval (BM25)](docs/f1-eval-results.md) · 🗓️ [Cobertura de extracción de plazo](docs/f2-deadline-coverage.md)
+📊 [Cobertura real de campos en BDNS](docs/f1-coverage-report.md) · 📋 [Criterio de etiquetado del gold set](docs/gold-labeling-criteria.md) · 📈 [Resultados de eval (BM25)](docs/f1-eval-results.md) · 🗓️ [Cobertura de extracción de plazo](docs/f2-deadline-coverage.md) · 🔧 [Montar el workflow n8n (F3)](docs/n8n-setup.md)
 
 ## Qué hace
 
@@ -73,6 +73,9 @@ scripts/
   measure_deadline_coverage.py    F2 — mide qué % del plazo se resuelve sin coste
   start-pipeline-stack.ps1        F3 — levanta Docker + n8n + Ollama + la API
   stop-pipeline-stack.ps1          F3 — los apaga en orden
+  run-pipeline-once.ps1            F3 — arranca el stack, lanza la ingesta, espera y apaga, en un comando
+  register-scheduled-tasks.ps1      F3 — registra el arranque/apagado semanal en el Programador de
+                                        tareas de Windows (preparado, sin activar a propósito)
 
 sql/                    Esquema Postgres/pgvector (001) + migraciones (002)
 data/gold/              Gold set curado a mano — SÍ se versiona (ver .gitignore)
@@ -145,7 +148,12 @@ para no abusar de un servicio gratuito de terceros.
 ```powershell
 .\scripts\start-pipeline-stack.ps1   # Docker + n8n + Ollama + la API, en orden
 .\scripts\stop-pipeline-stack.ps1    # los apaga
+# o los tres pasos (arrancar, ingerir, apagar) en un solo comando:
+.\scripts\run-pipeline-once.ps1
 ```
+
+Guía completa para montar el workflow de n8n (los 5 nodos, el aviso por
+Gmail, cómo probarlo sin esperar al lunes): [`docs/n8n-setup.md`](docs/n8n-setup.md).
 
 Con el stack levantado, la API expone:
 
@@ -214,6 +222,10 @@ clic y borrado de datos bajo petición. Detalle en `sql/001_init_schema.sql`.
   abiertos de la GVA en el MVP.
 - Los scripts del stack de F3 son **PowerShell** (`.ps1`), atados al entorno de
   desarrollo actual; en Linux/macOS hay que levantar los servicios a mano.
+- `POST /pipeline/ingest` no tiene **ninguna autenticación** todavía —
+  aceptable mientras solo corre en local, pero hay que añadir una API key
+  simple antes de exponerlo fuera de la máquina (detalle en
+  [`docs/n8n-setup.md`](docs/n8n-setup.md)).
 
 ## Licencia y aviso legal
 
