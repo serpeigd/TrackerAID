@@ -175,7 +175,7 @@ Variables de entorno (ver [`.env.example`](.env.example) — cópialo a `.env`, 
 | `BDNS_BASE_URL`, `BDNS_VPD` | `ingestion/bdns.py` | API pública, no requiere key (verificado 2026-08-11) |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | `storage.py` | Persistencia de la ingesta |
 | `SUPABASE_ANON_KEY`, `DATABASE_URL` | — | Reservadas para la app de F4, aún sin uso en el código |
-| `OLLAMA_URL`, `OLLAMA_MODEL` | `extraction/llm_ollama.py` | LLM local, gratis — el pipeline no necesita ninguna API de pago |
+| `OLLAMA_URL`, `OLLAMA_MODEL` | — | Documentan el valor por defecto del módulo (`localhost:11434`, `llama3.1:8b`) — `extraction/llm_ollama.py` usa constantes propias y no lee estas variables todavía, así que cambiarlas en `.env` no tiene efecto (ver Limitaciones) |
 | `LLM_PROVIDER`, `LLM_MODEL`, `LLM_MONTHLY_BUDGET_EUR`, `ANTHROPIC_API_KEY` | opcional | Solo para comparar calidad/coste contra un LLM de pago; déjalas vacías |
 | `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM` | digest semanal (F4/F5) | Aún no implementado |
 | `N8N_WEBHOOK_URL` | orquestación (F3) | Aún no implementado |
@@ -226,6 +226,13 @@ clic y borrado de datos bajo petición. Detalle en `sql/001_init_schema.sql`.
   aceptable mientras solo corre en local, pero hay que añadir una API key
   simple antes de exponerlo fuera de la máquina (detalle en
   [`docs/n8n-setup.md`](docs/n8n-setup.md)).
+- `OLLAMA_URL`/`OLLAMA_MODEL` no tienen efecto hoy: `extraction/llm_ollama.py`
+  usa constantes propias en vez de leer `config.settings` — gap de código real,
+  no solo de docs (ver Configuración arriba).
+- La ingesta (`pipeline.py`, F3) todavía no filtra por `abierto`: guarda el
+  campo pero no descarta convocatorias ya cerradas, aunque
+  [`docs/gold-labeling-criteria.md`](docs/gold-labeling-criteria.md) documenta
+  ese filtro como el paso que debe aplicarse antes de mandar el digest.
 
 ## Licencia y aviso legal
 

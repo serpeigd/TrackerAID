@@ -18,9 +18,12 @@ términos empresariales (pymes, autónomos, digitalización, IVACE...), solo
 temáticamente relevantes. Exigir apertura habría dejado el gold set casi
 vacío de positivos y habría medido "¿tengo suerte con el timing?" en vez
 de "¿el retrieval encuentra lo relevante?". `abierto` se queda como
-columna informativa (`data/gold/candidates.csv`) y es el filtro que sí
-aplica el pipeline de producto (F3) antes de mandar el digest — pero es
-un filtro posterior al retrieval, no parte de la etiqueta de relevancia.
+columna informativa (`data/gold/candidates.csv`) y es el filtro pensado
+para aplicarse antes de mandar el digest — pero es un filtro posterior al
+retrieval, no parte de la etiqueta de relevancia. **La ingesta actual
+(`pipeline.py`, F3) todavía no lo aplica**: guarda `abierto` en
+`doc_fields` pero no descarta convocatorias cerradas, así que hoy se
+ingiere también lo ya cerrado.
 
 **2 — Relevante.** La convocatoria concede ayuda económica directa a
 autónomos o pymes (inversión, digitalización, contratación, I+D+i,
