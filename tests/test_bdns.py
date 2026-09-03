@@ -29,6 +29,8 @@ RAW_DETALLE = {
     "tiposBeneficiarios": [{"descripcion": "PERSONAS JURÍDICAS QUE NO DESARROLLAN ACTIVIDAD ECONÓMICA"}],
     "urlBasesReguladoras": "http://example.org/bases",
     "sedeElectronica": "www.euskadi.eus",
+    "regiones": [{"descripcion": "ES21 - País Vasco"}],
+    "organo": {"nivel1": "AUTONOMICA", "nivel2": "PAÍS VASCO"},
 }
 
 RAW_ITEM = {
@@ -100,6 +102,8 @@ def test_convocatoria_detalle_from_api_parses_structured_fields():
     assert det.fecha_fin_solicitud == date(2026, 9, 30)
     assert det.sectores == ["AGRICULTURA, GANADERÍA, SILVICULTURA Y PESCA"]
     assert det.abierto is True
+    assert det.regiones == ["ES21 - País Vasco"]
+    assert det.nivel1 == "AUTONOMICA"  # va anidado bajo "organo" en el detalle, no en el nivel raíz
 
 
 def test_convocatoria_detalle_parses_texto_fin_cuando_no_hay_fecha_estructurada():

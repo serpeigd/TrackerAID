@@ -89,6 +89,13 @@ class ConvocatoriaDetalle(BaseModel):
     sectores: list[str] = []
     tipos_beneficiarios: list[str] = []
     regiones: list[str] = []
+    # ESTATAL / AUTONOMICA / LOCAL — viene anidado bajo "organo" en el
+    # endpoint de detalle (a diferencia del resumen de búsqueda, donde va
+    # en el nivel raíz). Decide si una convocatoria aplica a todo el país
+    # (ESTATAL, debería mostrarse siempre) o solo a una región/municipio
+    # concreto — sin esto, "regiones" por sí solo no distingue "aplica a
+    # toda España" de "no se pudo determinar la región".
+    nivel1: str | None = None
     url_bases_reguladoras: str | None = None
     sede_electronica: str | None = None
 
@@ -109,6 +116,7 @@ class ConvocatoriaDetalle(BaseModel):
             sectores=[s.get("descripcion", "") for s in raw.get("sectores") or []],
             tipos_beneficiarios=[b.get("descripcion", "") for b in raw.get("tiposBeneficiarios") or []],
             regiones=[r.get("descripcion", "") for r in raw.get("regiones") or []],
+            nivel1=(raw.get("organo") or {}).get("nivel1"),
             url_bases_reguladoras=raw.get("urlBasesReguladoras"),
             sede_electronica=raw.get("sedeElectronica"),
         )

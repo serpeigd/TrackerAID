@@ -59,7 +59,13 @@ def _fila_doc_fields(det: ConvocatoriaDetalle, resultado: ResultadoPlazo) -> dic
         "doc_id": det.id,
         "importe": det.importe,
         "deadline": resultado.fecha_fin.isoformat() if resultado.fecha_fin else None,
-        "ambito": ", ".join(det.regiones) or None,
+        # Array, no texto unido: una convocatoria puede aplicar a varias
+        # provincias a la vez, y guardarlo como lista permite comparar por
+        # solape (&&) contra el ámbito del perfil, igual que ya se hace con
+        # cnae. Antes se unía con ", " y la comparación por igualdad exacta
+        # de string casi nunca coincidía con el ámbito del perfil.
+        "ambito": det.regiones or None,
+        "nivel1": det.nivel1,
         "cnae": det.sectores or None,
         "beneficiarios": " | ".join(det.tipos_beneficiarios) or None,
         "extractor_version": resultado.metodo,

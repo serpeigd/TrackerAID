@@ -34,6 +34,7 @@ RAW_DETALLE = {
     "sectores": [{"descripcion": "COMERCIO"}],
     "tiposBeneficiarios": [{"descripcion": "PYME"}],
     "regiones": [{"descripcion": "ES523 - Valencia / València"}],
+    "organo": {"nivel1": "AUTONOMICA", "nivel2": "COMUNITAT VALENCIANA"},
     "sedeElectronica": "www.gva.es",
 }
 
@@ -68,7 +69,8 @@ def test_fila_doc_fields_incluye_plazo_resuelto_y_abierto():
     assert fila["deadline"] == "2026-12-31"
     assert fila["extractor_version"] == "estructurado"
     assert fila["abierto"] is True
-    assert fila["ambito"] == "ES523 - Valencia / València"
+    assert fila["ambito"] == ["ES523 - Valencia / València"]
+    assert fila["nivel1"] == "AUTONOMICA"
     assert fila["cnae"] == ["COMERCIO"]
 
 
