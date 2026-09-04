@@ -61,6 +61,97 @@ def test_contar_lee_content_range():
     assert storage.contar("documents") == 450
 
 
+@respx.mock
+def test_buscar_convocatorias_estatal_siempre_encaja_ignora_cnae():
+    respx.get(f"{BASE_URL}/rest/v1/doc_fields").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "doc_id": 1,
+                    "importe": 1000,
+                    "deadline": "2026-12-01",
+                    "ambito": None,
+                    "nivel1": "ESTATAL",
+                    "cnae": ["INDUSTRIA"],
+                    "documents": {"title": "Estatal", "source_url": "u1", "published_at": "2026-01-01"},
+                },
+                {
+                    "doc_id": 2,
+                    "importe": 500,
+                    "deadline": "2026-11-01",
+                    "ambito": ["ES523 - Valencia / València"],
+                    "nivel1": "AUTONOMICA",
+                    "cnae": ["COMERCIO"],
+                    "documents": {"title": "Autonómica coincide", "source_url": "u2", "published_at": "2026-01-01"},
+                },
+                {
+                    "doc_id": 3,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": None,
+                    "nivel1": "AUTONOMICA",
+                    "cnae": ["AGRICULTURA"],
+                    "documents": {"title": "Autonómica no coincide", "source_url": "u3", "published_at": "2026-01-01"},
+                },
+            ],
+        )
+    )
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    resultado = storage.buscar_convocatorias(cnae=["COMERCIO"])
+
+    # doc 3 no encaja (AUTONOMICA + cnae sin solape) -> fuera
+    assert [r["doc_id"] for r in resultado] == [2, 1]
+    # orden por deadline ascendente
+    assert resultado[0]["fecha_limite"] == "2026-11-01"
+    assert resultado[0]["titulo"] == "Autonómica coincide"
+    assert resultado[0]["url"] == "u2"
+
+
+@respx.mock
+def test_buscar_convocatorias_sin_filtro_cnae_no_descarta_nada():
+    respx.get(f"{BASE_URL}/rest/v1/doc_fields").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "doc_id": 3,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": None,
+                    "nivel1": "AUTONOMICA",
+                    "cnae": ["AGRICULTURA"],
+                    "documents": {"title": "Sin filtro", "source_url": "u3", "published_at": "2026-01-01"},
+                },
+            ],
+        )
+    )
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    resultado = storage.buscar_convocatorias()
+    assert len(resultado) == 1
+    assert resultado[0]["fecha_limite"] is None
+
+
+@respx.mock
+def test_buscar_convocatorias_respeta_el_limite():
+    filas = [
+        {
+            "doc_id": i,
+            "importe": None,
+            "deadline": None,
+            "ambito": None,
+            "nivel1": None,
+            "cnae": None,
+            "documents": {"title": f"Conv {i}", "source_url": None, "published_at": None},
+        }
+        for i in range(5)
+    ]
+    respx.get(f"{BASE_URL}/rest/v1/doc_fields").mock(return_value=httpx.Response(200, json=filas))
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    resultado = storage.buscar_convocatorias(limite=2)
+    assert len(resultado) == 2
+
+
 @pytest.mark.integration
 def test_upsert_y_contar_contra_supabase_real():
     """Smoke test contra el Supabase real del proyecto. Correr con:

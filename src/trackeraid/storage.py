@@ -8,6 +8,7 @@ proceso de backend de confianza, nunca debe usarse desde el cliente/app.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, Self
 
 import httpx
@@ -82,3 +83,50 @@ class SupabaseStorage:
         resp.raise_for_status()
         content_range = resp.headers.get("content-range", "*/0")
         return int(content_range.split("/")[-1])
+
+    def buscar_convocatorias(
+        self, cnae: list[str] | None = None, ambito: str | None = None, limite: int = 20
+    ) -> list[dict[str, Any]]:
+        """Solo lectura. Convocatorias abiertas y con plazo vigente (o sin
+        plazo publicado), opcionalmente filtradas por sector.
+
+        Replica a propósito el mismo criterio permisivo del dashboard de
+        Lovable (ver su Knowledge): ESTATAL siempre aplica sin mirar
+        ámbito; si no hay forma fiable de comparar el ámbito libre del
+        perfil contra el de la convocatoria, se muestra igualmente — mejor
+        de más que ocultar una ayuda válida. `ambito` de momento no filtra
+        de verdad por esa razón, queda como parámetro para cuando exista
+        un campo de provincia/ciudad dedicado en el perfil.
+        """
+        hoy = datetime.now(UTC).date().isoformat()
+        resp = self._client.get(
+            "/doc_fields",
+            params={
+                "select": "doc_id,importe,deadline,ambito,nivel1,cnae,"
+                "documents(title,source_url,published_at)",
+                "and": f"(or(abierto.is.null,abierto.eq.true),or(deadline.is.null,deadline.gte.{hoy}))",
+            },
+        )
+        resp.raise_for_status()
+        filas = resp.json()
+
+        def encaja(fila: dict[str, Any]) -> bool:
+            if fila.get("nivel1") == "ESTATAL":
+                return True
+            return not (cnae and fila.get("cnae") and not set(fila["cnae"]) & set(cnae))
+
+        candidatas = [f for f in filas if encaja(f)]
+        candidatas.sort(key=lambda f: (f["deadline"] is None, f["deadline"] or ""))
+
+        return [
+            {
+                "doc_id": f["doc_id"],
+                "titulo": f["documents"]["title"],
+                "url": f["documents"]["source_url"],
+                "importe": f["importe"],
+                "fecha_limite": f["deadline"],
+                "ambito": f["ambito"],
+                "nivel1": f["nivel1"],
+            }
+            for f in candidatas[:limite]
+        ]
