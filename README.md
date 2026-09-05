@@ -6,9 +6,15 @@
 
 > Radar semántico de subvenciones públicas para autónomos y pymes de la Comunitat Valenciana.
 
-**Estado: en construcción (F0, F1 y F2 completadas; F3 en marcha).** Este README se actualiza fase a fase — ver [roadmap](#roadmap) y [ADRs](docs/adr/).
+**Estado: en construcción (F0-F2 completadas; F3 en marcha; app de Lovable
+funcional pero sin publicar).** Este README se actualiza fase a fase — ver
+[roadmap](#roadmap) y [ADRs](docs/adr/).
 
-📊 [Cobertura real de campos en BDNS](docs/f1-coverage-report.md) · 📋 [Criterio de etiquetado del gold set](docs/gold-labeling-criteria.md) · 📈 [Resultados de eval (BM25)](docs/f1-eval-results.md) · 🗓️ [Cobertura de extracción de plazo](docs/f2-deadline-coverage.md) · 🔧 [Montar el workflow n8n (F3)](docs/n8n-setup.md)
+📊 [Cobertura real de campos en BDNS](docs/f1-coverage-report.md) · 📋 [Criterio de etiquetado del gold set](docs/gold-labeling-criteria.md) · 📈 [Resultados de eval (BM25)](docs/f1-eval-results.md) · 🗓️ [Cobertura de extracción de plazo](docs/f2-deadline-coverage.md) · 🔧 [Montar el workflow n8n (F3)](docs/n8n-setup.md) · 🔌 [Servidor MCP](docs/mcp-server.md) · 🔁 [Bucle de feedback](docs/f6-feedback-loop.md) · 🌍 [Filtro real de ámbito](docs/f8-filtro-ambito.md)
+
+> Los docs `f6-*`/`f7-*`/`f8-*` numeran features sueltas construidas en
+> sesión, sin relación con las fases F6/F7 de la [tabla de roadmap](#roadmap)
+> más abajo — coincidencia de nombre, no la misma numeración.
 
 ## Qué hace
 
@@ -49,7 +55,8 @@ BDNS API ──▶ ingestion (Python) ──▶ Postgres/pgvector (Supabase)
 - **Núcleo**: Python (FastAPI + retrieval/extraction), tests + CI.
 - **Datos**: Postgres con pgvector en Supabase, RLS por usuario.
 - **Orquestación**: n8n autoalojado en Docker (cron semanal, llama a la API).
-- **Producto**: app en Lovable (alta, perfil, feedback) + landing con secciones generadas con prompts de motionsites.ai. Repo: [trackeraid-onboarding-pro](https://github.com/serpeigd/trackeraid-onboarding-pro) (privado por ahora — se abre en F5).
+- **Producto**: app en Lovable (auth, onboarding, dashboard, consentimiento RGPD) — funcional, sin publicar (`is_published=false`, pendiente revisión legal de `/privacidad`). Repo: [trackeraid-onboarding-pro](https://github.com/serpeigd/trackeraid-onboarding-pro) (privado por ahora — se abre en F5).
+- **Servidor MCP**: `buscar_convocatorias` expuesta como tool para agentes compatibles con MCP (Claude Desktop/Code, ChatGPT con conectores) — solo lectura, sin datos de perfil de usuario. Detalle en [`docs/mcp-server.md`](docs/mcp-server.md).
 - **Embeddings**: locales (multilingual-e5 / bge-m3), en batch. LLM solo para extracción estructurada del top-N, con caché por hash y presupuesto mensual duro.
 
 Decisiones documentadas en detalle: [ADR-0001](docs/adr/0001-record-architecture-decisions.md) · [ADR-0002 (fuente única BDNS)](docs/adr/0002-fuente-unica-bdns.md) · [ADR-0003 (lógica en Python)](docs/adr/0003-logica-en-python-no-en-n8n.md) · [ADR-0004 (extracción gratis: regex + LLM local)](docs/adr/0004-extraccion-gratis-regex-llm-local.md).
@@ -61,7 +68,10 @@ src/trackeraid/
   config.py             Configuración centralizada (lee .env / os.environ)
   api.py                 FastAPI: /health, /pipeline/ingest (202, en background), /pipeline/status
   pipeline.py             Orquesta la ingesta semanal: BDNS -> extracción de plazo -> Supabase
-  storage.py               Persistencia en Supabase
+  storage.py               Persistencia en Supabase + filtros de `buscar_convocatorias`
+  ranking.py                 Puntuación heurística del digest (sector + urgencia + afinidad)
+  digest.py                   Genera y guarda el digest de un usuario (candidatas -> ranking -> Supabase)
+  mcp_server.py                Servidor MCP: expone `buscar_convocatorias` como tool
   ingestion/bdns.py         Cliente de solo lectura sobre la API pública de BDNS
   retrieval/                 Baseline BM25 (bm25.py) + métricas de IR (metrics.py)
   extraction/                 Plazo: deadline.py (regex, 3 niveles) + llm_ollama.py (LLM local)
@@ -71,13 +81,15 @@ scripts/
   build_gold_candidates.py      F1 — genera la hoja de candidatas para el gold set
   run_eval.py                    F1 — baseline BM25 sobre el gold set, reporta métricas
   measure_deadline_coverage.py    F2 — mide qué % del plazo se resuelve sin coste
+  build_mcp_gold_candidates.py     Gold set del filtro de `buscar_convocatorias` (MCP)
+  eval_mcp_filter.py                Precisión/recall del filtro MCP contra ese gold set
   start-pipeline-stack.ps1        F3 — levanta Docker + n8n + Ollama + la API
   stop-pipeline-stack.ps1          F3 — los apaga en orden
   run-pipeline-once.ps1            F3 — arranca el stack, lanza la ingesta, espera y apaga, en un comando
   register-scheduled-tasks.ps1      F3 — registra el arranque/apagado semanal en el Programador de
                                         tareas de Windows (preparado, sin activar a propósito)
 
-sql/                    Esquema Postgres/pgvector (001) + migraciones (002)
+sql/                    Esquema Postgres/pgvector (001) + migraciones (002-004)
 data/gold/              Gold set curado a mano — SÍ se versiona (ver .gitignore)
 data/raw/               Muestras crudas de BDNS — NO se versiona, regenerable
 docs/adr/               Decisiones de arquitectura (formato Nygard)
@@ -193,10 +205,11 @@ falta más adelante, pero todavía no las lee ningún módulo.
 | F1 | Cobertura de campos medida, gold set completo (443/450), baseline BM25 evaluado | ✅ |
 | F2 | Extracción de plazo (regex + LLM local, sin coste, 91,3% resuelto) | ✅ |
 | F3 | Pipeline de ingesta a Supabase, API FastAPI y scaffold de n8n ✅ · email verificado (SPF/DKIM/DMARC) pendiente | 🚧 |
-| F4 | App pública en Lovable + consentimiento RGPD | ⬜ |
+| F4 | App pública en Lovable (auth, onboarding, dashboard) + consentimiento RGPD — construida y probada, `is_published=false` hasta revisar `/privacidad` con un abogado | 🚧 |
 | F5 | Lanzamiento con usuarios reales | ⬜ |
-| F6 | Reranker entrenado con feedback real, A/B | ⬜ |
+| F6 | Bucle de feedback: `digests`/`impressions`/`feedback` en uso, ranking heurístico ([detalle](docs/f6-feedback-loop.md)) · falta email real, programación semanal y reranker entrenado/A-B | 🚧 |
 | F7 | Página de métricas pública + vídeo demo | ⬜ |
+| — | Servidor MCP (`buscar_convocatorias` como tool para agentes) — iniciativa aparte, no en el roadmap original | 🚧 |
 
 ## Privacidad
 
@@ -233,6 +246,21 @@ clic y borrado de datos bajo petición. Detalle en `sql/001_init_schema.sql`.
   campo pero no descarta convocatorias ya cerradas, aunque
   [`docs/gold-labeling-criteria.md`](docs/gold-labeling-criteria.md) documenta
   ese filtro como el paso que debe aplicarse antes de mandar el digest.
+- El ámbito geográfico solo llega a **provincia** (Alicante/Castellón/
+  Valencia) — es toda la granularidad que da BDNS, no hay municipio.
+  Detalle en [`docs/f8-filtro-ambito.md`](docs/f8-filtro-ambito.md).
+- Un segundo perfil de usuario ("particular/asociación") se probó y se
+  descartó con datos reales: 1,3% de precisión contra un gold set de 275
+  casos etiquetados a mano — `beneficiarios` mide tipo de entidad
+  receptora, no relevancia temática. Solo existe `perfil="negocio"`.
+  Detalle en [`docs/f7-mcp-filter-eval.md`](docs/f7-mcp-filter-eval.md).
+- El bucle de feedback (F6) guarda digests e impresiones en Supabase, pero
+  todavía no envía ningún email ni corre programado — hoy solo se puede
+  disparar a mano. Ver [`docs/f6-feedback-loop.md`](docs/f6-feedback-loop.md).
+- El servidor MCP habla por `stdio` (solo alcanzable desde la propia
+  máquina) y no tiene autenticación — exponerlo a un agente externo en la
+  nube necesita transporte HTTP + host público + API key, todavía sin
+  hacer. Ver [`docs/mcp-server.md`](docs/mcp-server.md).
 
 ## Licencia y aviso legal
 
