@@ -139,6 +139,55 @@ def test_buscar_convocatorias_sin_filtro_cnae_no_descarta_nada():
 
 
 @respx.mock
+def test_buscar_convocatorias_perfil_negocio_excluye_asociaciones_sin_pyme():
+    respx.get(f"{BASE_URL}/rest/v1/doc_fields").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "doc_id": 1,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": None,
+                    "nivel1": None,
+                    "cnae": None,
+                    # Real de BDNS: asociaciones/clubes, no autónomos ni pymes.
+                    "beneficiarios": "PERSONAS JURÍDICAS QUE NO DESARROLLAN ACTIVIDAD ECONÓMICA",
+                    "documents": {"title": "Solo asociaciones", "source_url": "u1", "published_at": None},
+                },
+                {
+                    "doc_id": 2,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": None,
+                    "nivel1": None,
+                    "cnae": None,
+                    "beneficiarios": "PYME Y PERSONAS FÍSICAS QUE DESARROLLAN ACTIVIDAD ECONÓMICA",
+                    "documents": {"title": "Pyme", "source_url": "u2", "published_at": None},
+                },
+                {
+                    "doc_id": 3,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": None,
+                    "nivel1": None,
+                    "cnae": None,
+                    "beneficiarios": None,  # desconocido -> permisivo
+                    "documents": {"title": "Sin dato", "source_url": "u3", "published_at": None},
+                },
+            ],
+        )
+    )
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+
+    negocio = storage.buscar_convocatorias(perfil="negocio")
+    assert {r["doc_id"] for r in negocio} == {2, 3}
+
+    particular = storage.buscar_convocatorias(perfil="particular")
+    assert {r["doc_id"] for r in particular} == {1, 3}
+
+
+@respx.mock
 def test_buscar_convocatorias_respeta_el_limite():
     filas = [
         {

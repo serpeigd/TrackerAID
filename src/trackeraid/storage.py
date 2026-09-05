@@ -9,7 +9,7 @@ proceso de backend de confianza, nunca debe usarse desde el cliente/app.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -85,7 +85,11 @@ class SupabaseStorage:
         return int(content_range.split("/")[-1])
 
     def buscar_convocatorias(
-        self, cnae: list[str] | None = None, ambito: str | None = None, limite: int = 20
+        self,
+        cnae: list[str] | None = None,
+        ambito: str | None = None,
+        perfil: Literal["negocio", "particular"] = "negocio",
+        limite: int = 20,
     ) -> list[dict[str, Any]]:
         """Solo lectura. Convocatorias abiertas y con plazo vigente (o sin
         plazo publicado), opcionalmente filtradas por sector.
@@ -104,12 +108,22 @@ class SupabaseStorage:
         mayúsculas inconsistentes entre convocatorias. Una igualdad exacta
         (como en la v1 original) nunca hacía match con nada real — bug
         real encontrado probando la tool con un cliente MCP de verdad.
+
+        `perfil` filtra por `beneficiarios` — bug real encontrado el
+        2026-09-05: hasta ahora esto no se filtraba nunca, así que un
+        autónomo/pyme (`perfil="negocio"`, el valor por defecto — es el
+        público objetivo actual del proyecto) podía ver convocatorias para
+        "personas jurídicas que no desarrollan actividad económica"
+        (asociaciones/clubes) que no puede solicitar. `perfil="particular"`
+        es el inverso, para el caso de uso de particulares/asociaciones
+        (ver ADR pendiente — todavía no es un público oficial del
+        proyecto, solo la pieza técnica para poder evaluarlo).
         """
         hoy = datetime.now(UTC).date().isoformat()
         resp = self._client.get(
             "/doc_fields",
             params={
-                "select": "doc_id,importe,deadline,ambito,nivel1,cnae,"
+                "select": "doc_id,importe,deadline,ambito,nivel1,cnae,beneficiarios,"
                 "documents(title,source_url,published_at)",
                 "and": f"(or(abierto.is.null,abierto.eq.true),or(deadline.is.null,deadline.gte.{hoy}))",
             },
@@ -119,7 +133,7 @@ class SupabaseStorage:
 
         cnae_buscado = [c.lower() for c in cnae] if cnae else None
 
-        def encaja(fila: dict[str, Any]) -> bool:
+        def encaja_sector(fila: dict[str, Any]) -> bool:
             if fila.get("nivel1") == "ESTATAL":
                 return True
             sectores_doc = fila.get("cnae") or []
@@ -127,7 +141,18 @@ class SupabaseStorage:
                 return True
             return any(kw in sector.lower() for kw in cnae_buscado for sector in sectores_doc)
 
-        candidatas = [f for f in filas if encaja(f)]
+        def encaja_perfil(fila: dict[str, Any]) -> bool:
+            beneficiarios = fila.get("beneficiarios")
+            if not beneficiarios:
+                return True  # desconocido -> permisivo, mismo criterio que el resto
+            frases = [f.upper() for f in beneficiarios.split(" | ")]
+            if perfil == "particular":
+                return any("NO DESARROLLAN ACTIVIDAD ECONÓMICA" in f for f in frases)
+            return any(
+                "PYME" in f or ("ACTIVIDAD ECONÓMICA" in f and "NO DESARROLLAN" not in f) for f in frases
+            )
+
+        candidatas = [f for f in filas if encaja_sector(f) and encaja_perfil(f)]
         candidatas.sort(key=lambda f: (f["deadline"] is None, f["deadline"] or ""))
 
         return [
@@ -140,6 +165,7 @@ class SupabaseStorage:
                 "ambito": f["ambito"],
                 "nivel1": f["nivel1"],
                 "cnae": f["cnae"],
+                "beneficiarios": f.get("beneficiarios"),
             }
             for f in candidatas[:limite]
         ]

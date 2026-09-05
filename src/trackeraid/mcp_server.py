@@ -21,7 +21,7 @@ HTTP a un agente externo.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -34,24 +34,29 @@ mcp = FastMCP("trackeraid")
 def buscar_convocatorias(
     cnae: list[str] | None = None,
     ambito: str | None = None,
+    perfil: Literal["negocio", "particular"] = "negocio",
     limite: int = 20,
 ) -> list[dict[str, Any]]:
     """Busca convocatorias de subvenciones públicas abiertas y con plazo
     vigente en la Comunitat Valenciana (o sin fecha límite publicada).
 
     Args:
-        cnae: sectores de actividad a priorizar (ej. ["COMERCIO", "TURISMO"]).
-            Sin filtro si se omite.
+        cnae: sectores de actividad a priorizar (ej. ["comercio", "turismo"]).
+            Filtra por coincidencia parcial, sin distinguir mayúsculas. Sin
+            filtro si se omite.
         ambito: ámbito geográfico de referencia (ej. "Comunitat Valenciana").
             De momento informativo, no filtra de forma estricta — ver
             docs/mcp-server.md.
+        perfil: "negocio" (autónomos/pymes, por defecto — el público
+            objetivo actual del proyecto) o "particular" (personas físicas
+            o asociaciones sin actividad económica).
         limite: máximo de resultados a devolver (por defecto 20).
 
     Devuelve una lista de convocatorias con título, URL oficial, importe,
-    fecha límite y ámbito.
+    fecha límite, ámbito, sector y a quién van dirigidas.
     """
     with SupabaseStorage() as storage:
-        return storage.buscar_convocatorias(cnae=cnae, ambito=ambito, limite=limite)
+        return storage.buscar_convocatorias(cnae=cnae, ambito=ambito, perfil=perfil, limite=limite)
 
 
 if __name__ == "__main__":
