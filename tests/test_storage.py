@@ -82,7 +82,9 @@ def test_buscar_convocatorias_estatal_siempre_encaja_ignora_cnae():
                     "deadline": "2026-11-01",
                     "ambito": ["ES523 - Valencia / València"],
                     "nivel1": "AUTONOMICA",
-                    "cnae": ["COMERCIO"],
+                    # Real de BDNS: descripción larga, mayúsculas inconsistentes,
+                    # nunca la palabra suelta que buscaría un usuario.
+                    "cnae": ["COMERCIO AL POR MAYOR Y AL POR MENOR"],
                     "documents": {"title": "Autonómica coincide", "source_url": "u2", "published_at": "2026-01-01"},
                 },
                 {
@@ -91,21 +93,25 @@ def test_buscar_convocatorias_estatal_siempre_encaja_ignora_cnae():
                     "deadline": None,
                     "ambito": None,
                     "nivel1": "AUTONOMICA",
-                    "cnae": ["AGRICULTURA"],
+                    "cnae": ["Agricultura, ganadería, caza y servicios relacionados con las mismas"],
                     "documents": {"title": "Autonómica no coincide", "source_url": "u3", "published_at": "2026-01-01"},
                 },
             ],
         )
     )
     storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
-    resultado = storage.buscar_convocatorias(cnae=["COMERCIO"])
+    # Palabra corta, en minúscula: así busca de verdad un usuario o un agente,
+    # no la descripción completa de BDNS.
+    resultado = storage.buscar_convocatorias(cnae=["comercio"])
 
-    # doc 3 no encaja (AUTONOMICA + cnae sin solape) -> fuera
+    # doc 3 no encaja (AUTONOMICA + cnae sin relación) -> fuera
     assert [r["doc_id"] for r in resultado] == [2, 1]
     # orden por deadline ascendente
     assert resultado[0]["fecha_limite"] == "2026-11-01"
     assert resultado[0]["titulo"] == "Autonómica coincide"
     assert resultado[0]["url"] == "u2"
+    # cnae va en la respuesta -> se puede depurar por qué algo entró o no
+    assert resultado[0]["cnae"] == ["COMERCIO AL POR MAYOR Y AL POR MENOR"]
 
 
 @respx.mock

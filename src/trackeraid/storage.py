@@ -97,6 +97,13 @@ class SupabaseStorage:
         de más que ocultar una ayuda válida. `ambito` de momento no filtra
         de verdad por esa razón, queda como parámetro para cuando exista
         un campo de provincia/ciudad dedicado en el perfil.
+
+        `cnae` filtra por subcadena, sin distinguir mayúsculas — el campo
+        `cnae` de BDNS son descripciones libres, no códigos ("COMERCIO AL
+        POR MAYOR Y AL POR MENOR", "Comercio al por menor"...), con
+        mayúsculas inconsistentes entre convocatorias. Una igualdad exacta
+        (como en la v1 original) nunca hacía match con nada real — bug
+        real encontrado probando la tool con un cliente MCP de verdad.
         """
         hoy = datetime.now(UTC).date().isoformat()
         resp = self._client.get(
@@ -110,10 +117,15 @@ class SupabaseStorage:
         resp.raise_for_status()
         filas = resp.json()
 
+        cnae_buscado = [c.lower() for c in cnae] if cnae else None
+
         def encaja(fila: dict[str, Any]) -> bool:
             if fila.get("nivel1") == "ESTATAL":
                 return True
-            return not (cnae and fila.get("cnae") and not set(fila["cnae"]) & set(cnae))
+            sectores_doc = fila.get("cnae") or []
+            if not cnae_buscado or not sectores_doc:
+                return True
+            return any(kw in sector.lower() for kw in cnae_buscado for sector in sectores_doc)
 
         candidatas = [f for f in filas if encaja(f)]
         candidatas.sort(key=lambda f: (f["deadline"] is None, f["deadline"] or ""))
@@ -127,6 +139,7 @@ class SupabaseStorage:
                 "fecha_limite": f["deadline"],
                 "ambito": f["ambito"],
                 "nivel1": f["nivel1"],
+                "cnae": f["cnae"],
             }
             for f in candidatas[:limite]
         ]
