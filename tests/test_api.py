@@ -14,6 +14,27 @@ def test_health():
     assert r.json() == {"status": "ok"}
 
 
+def test_feedback_registra_y_devuelve_ok():
+    with patch("trackeraid.api.SupabaseStorage") as mock_storage_cls:
+        mock_storage = mock_storage_cls.return_value.__enter__.return_value
+        r = client.get("/feedback", params={"impression_id": "imp-1", "label": "up"})
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+    mock_storage.registrar_feedback.assert_called_once_with("imp-1", "up")
+
+
+def test_feedback_rechaza_una_etiqueta_invalida():
+    r = client.get("/feedback", params={"impression_id": "imp-1", "label": "algo_raro"})
+    assert r.status_code == 422
+
+
+def test_feedback_devuelve_500_si_supabase_falla():
+    with patch("trackeraid.api.SupabaseStorage") as mock_storage_cls:
+        mock_storage_cls.return_value.__enter__.return_value.registrar_feedback.side_effect = RuntimeError("caído")
+        r = client.get("/feedback", params={"impression_id": "imp-1", "label": "down"})
+    assert r.status_code == 500
+
+
 def test_pipeline_ingest_responde_al_instante_202():
     with patch("trackeraid.api.ingerir", return_value=ResumenIngesta()):
         r = client.post("/pipeline/ingest", json={"dias": 7, "con_llm": True, "max_convocatorias": 50})

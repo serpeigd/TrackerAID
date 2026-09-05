@@ -17,10 +17,13 @@ import threading
 from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from trackeraid.pipeline import ResumenIngesta, ingerir
+from trackeraid.storage import SupabaseStorage
+
+EtiquetaFeedback = Literal["up", "down", "saved", "clicked"]
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("trackeraid.api")
@@ -142,3 +145,17 @@ def pipeline_status() -> EstadoResponse:
         resumen=ResumenResponse.from_resumen(_estado_pipeline.resumen) if _estado_pipeline.resumen else None,
         error=_estado_pipeline.error,
     )
+
+
+@app.get("/feedback")
+def registrar_feedback(impression_id: str, label: EtiquetaFeedback) -> dict[str, str]:
+    """GET a propósito, no POST: tiene que poder dispararse con un solo
+    clic desde un enlace de email (👍/👎 en el digest semanal), sin
+    formulario ni JavaScript de por medio."""
+    try:
+        with SupabaseStorage() as storage:
+            storage.registrar_feedback(impression_id, label)
+    except Exception as e:
+        logger.exception("Fallo registrando feedback")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    return {"status": "ok"}

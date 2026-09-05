@@ -207,6 +207,88 @@ def test_buscar_convocatorias_respeta_el_limite():
     assert len(resultado) == 2
 
 
+@respx.mock
+def test_crear_digest_devuelve_el_digest_id():
+    respx.post(f"{BASE_URL}/rest/v1/digests").mock(
+        return_value=httpx.Response(201, json=[{"digest_id": "abc-123"}])
+    )
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    digest_id = storage.crear_digest("user-1", n_items=5)
+    assert digest_id == "abc-123"
+
+
+@respx.mock
+def test_registrar_impresiones_incluye_digest_id_y_user_id():
+    route = respx.post(f"{BASE_URL}/rest/v1/impressions").mock(return_value=httpx.Response(201))
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    n = storage.registrar_impresiones(
+        "digest-1",
+        "user-1",
+        [{"doc_id": 42, "position": 0, "score": 1.5, "model_version": "v1", "features_json": {}}],
+    )
+    assert n == 1
+    enviado = route.calls.last.request.content
+    assert b'"digest_id":"digest-1"' in enviado
+    assert b'"user_id":"user-1"' in enviado
+
+
+@respx.mock
+def test_registrar_impresiones_con_lista_vacia_no_hace_peticion():
+    route = respx.post(f"{BASE_URL}/rest/v1/impressions")
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    assert storage.registrar_impresiones("digest-1", "user-1", []) == 0
+    assert route.call_count == 0
+
+
+@respx.mock
+def test_registrar_feedback_envia_impression_id_y_label():
+    route = respx.post(f"{BASE_URL}/rest/v1/feedback").mock(return_value=httpx.Response(201))
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    storage.registrar_feedback("impresion-1", "up")
+    enviado = route.calls.last.request.content
+    assert b'"impression_id":"impresion-1"' in enviado
+    assert b'"label":"up"' in enviado
+
+
+@respx.mock
+def test_afinidad_sectorial_suma_up_resta_down_ignora_clicked():
+    # Dos llamadas reales, no un embed anidado -- impressions no tiene FK
+    # a doc_fields (ver docstring de afinidad_sectorial).
+    respx.get(f"{BASE_URL}/rest/v1/feedback").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"label": "up", "impressions": {"doc_id": 1}},
+                {"label": "up", "impressions": {"doc_id": 2}},
+                {"label": "down", "impressions": {"doc_id": 1}},
+                {"label": "clicked", "impressions": {"doc_id": 1}},
+            ],
+        )
+    )
+    respx.get(f"{BASE_URL}/rest/v1/doc_fields").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"doc_id": 1, "cnae": ["HOSTELERÍA"]},
+                {"doc_id": 2, "cnae": ["HOSTELERÍA", "COMERCIO"]},
+            ],
+        )
+    )
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    afinidad = storage.afinidad_sectorial("user-1")
+    assert afinidad["HOSTELERÍA"] == 1.0  # doc 1: +1 -1 = 0; doc 2: +1 -> total 1
+    assert afinidad["COMERCIO"] == 1.0
+
+
+@respx.mock
+def test_afinidad_sectorial_sin_feedback_no_llama_a_doc_fields():
+    respx.get(f"{BASE_URL}/rest/v1/feedback").mock(return_value=httpx.Response(200, json=[]))
+    route_doc_fields = respx.get(f"{BASE_URL}/rest/v1/doc_fields")
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    assert storage.afinidad_sectorial("user-1") == {}
+    assert route_doc_fields.call_count == 0
+
+
 @pytest.mark.integration
 def test_upsert_y_contar_contra_supabase_real():
     """Smoke test contra el Supabase real del proyecto. Correr con:

@@ -189,3 +189,75 @@ class SupabaseStorage:
             }
             for f in candidatas[:limite]
         ]
+
+    def crear_digest(self, user_id: str, n_items: int) -> str:
+        """Registra que se generó un digest para este usuario — antes de
+        insertar impresiones, porque `impressions.digest_id` es NOT NULL
+        (una impresión siempre pertenece a un digest, nunca suelta)."""
+        resp = self._client.post(
+            "/digests",
+            json={"user_id": user_id, "n_items": n_items},
+            headers={"Prefer": "return=representation"},
+        )
+        resp.raise_for_status()
+        return resp.json()[0]["digest_id"]
+
+    def registrar_impresiones(self, digest_id: str, user_id: str, filas: list[dict[str, Any]]) -> int:
+        """`filas`: cada una con doc_id, position, score, model_version,
+        features_json. Se guardan aunque el usuario nunca reaccione — es
+        lo que permite luego calcular afinidad incluso a partir de lo que
+        NO recibió feedback (base para futuro trabajo, no usado todavía)."""
+        if not filas:
+            return 0
+        payload = [{**f, "digest_id": digest_id, "user_id": user_id} for f in filas]
+        resp = self._client.post("/impressions", json=payload, headers={"Prefer": "return=minimal"})
+        resp.raise_for_status()
+        return len(payload)
+
+    def registrar_feedback(self, impression_id: str, label: Literal["up", "down", "saved", "clicked"]) -> None:
+        resp = self._client.post("/feedback", json={"impression_id": impression_id, "label": label})
+        resp.raise_for_status()
+
+    def afinidad_sectorial(self, user_id: str) -> dict[str, float]:
+        """Puntuación neta de feedback por sector (cnae) para un usuario:
+        +1 por 'up'/'saved', -1 por 'down', 'clicked' no puntúa (interés
+        débil, no señal de relevancia). Es la pieza que hace que el
+        ranking mejore con el uso real, no solo con el filtro estático.
+
+        Dos consultas, no un embed anidado: `impressions` tiene FK a
+        `documents`, pero NO a `doc_fields` (aunque comparten `doc_id`),
+        así que PostgREST no puede resolver `impressions -> doc_fields`
+        en un solo embed — se probó contra la API real y falló con
+        PGRST200 ("no matches were found").
+        """
+        resp = self._client.get(
+            "/feedback",
+            params={
+                "select": "label,impressions!inner(user_id,doc_id)",
+                "impressions.user_id": f"eq.{user_id}",
+            },
+        )
+        resp.raise_for_status()
+        filas = resp.json()
+
+        peso = {"up": 1.0, "saved": 1.0, "down": -1.0, "clicked": 0.0}
+        puntos_por_doc: dict[int, float] = {}
+        for f in filas:
+            puntos = peso.get(f["label"], 0.0)
+            if puntos == 0.0:
+                continue
+            doc_id = f["impressions"]["doc_id"]
+            puntos_por_doc[doc_id] = puntos_por_doc.get(doc_id, 0.0) + puntos
+        if not puntos_por_doc:
+            return {}
+
+        ids = ",".join(str(d) for d in puntos_por_doc)
+        resp = self._client.get("/doc_fields", params={"select": "doc_id,cnae", "doc_id": f"in.({ids})"})
+        resp.raise_for_status()
+        sectores_por_doc = {f["doc_id"]: f.get("cnae") or [] for f in resp.json()}
+
+        afinidad: dict[str, float] = {}
+        for doc_id, puntos in puntos_por_doc.items():
+            for sector in sectores_por_doc.get(doc_id, []):
+                afinidad[sector] = afinidad.get(sector, 0.0) + puntos
+        return afinidad
