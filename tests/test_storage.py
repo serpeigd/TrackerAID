@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-from trackeraid.storage import SupabaseConfigError, SupabaseStorage
+from trackeraid.storage import SupabaseConfigError, SupabaseStorage, ambito_encaja
 
 BASE_URL = "https://example.supabase.co"
 
@@ -185,6 +185,72 @@ def test_buscar_convocatorias_perfil_negocio_excluye_asociaciones_sin_pyme():
 
     particular = storage.buscar_convocatorias(perfil="particular")
     assert {r["doc_id"] for r in particular} == {1, 3}
+
+
+def test_ambito_encaja_estatal_siempre_encaja_ignora_provincia():
+    assert ambito_encaja(["ES521 - Alicante / Alacant"], "ESTATAL", "ES523") is True
+
+
+def test_ambito_encaja_sin_codigo_de_provincia_reconocido_es_permisivo():
+    # Texto libre heredado ("Comunitat Valenciana") o vacío: sin filtro,
+    # para no ocultar nada a un perfil que aún no se ha guardado con el
+    # desplegable nuevo.
+    assert ambito_encaja(["ES521 - Alicante / Alacant"], "LOCAL", "Comunitat Valenciana") is True
+    assert ambito_encaja(["ES521 - Alicante / Alacant"], "LOCAL", None) is True
+
+
+def test_ambito_encaja_convocatoria_sin_ambito_conocido_es_permisiva():
+    assert ambito_encaja(None, "LOCAL", "ES523") is True
+
+
+def test_ambito_encaja_filtra_de_verdad_con_codigo_de_provincia():
+    assert ambito_encaja(["ES523 - Valencia / València"], "LOCAL", "ES523") is True
+    assert ambito_encaja(["ES521 - Alicante / Alacant"], "LOCAL", "ES523") is False
+
+
+@respx.mock
+def test_buscar_convocatorias_filtra_por_provincia_del_ambito():
+    respx.get(f"{BASE_URL}/rest/v1/doc_fields").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "doc_id": 1,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": ["ES523 - Valencia / València"],
+                    "nivel1": "LOCAL",
+                    "cnae": None,
+                    "documents": {"title": "Valencia", "source_url": "u1", "published_at": None},
+                },
+                {
+                    "doc_id": 2,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": ["ES521 - Alicante / Alacant"],
+                    "nivel1": "LOCAL",
+                    "cnae": None,
+                    "documents": {"title": "Alicante", "source_url": "u2", "published_at": None},
+                },
+                {
+                    "doc_id": 3,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": None,
+                    "nivel1": "ESTATAL",
+                    "cnae": None,
+                    "documents": {"title": "Estatal", "source_url": "u3", "published_at": None},
+                },
+            ],
+        )
+    )
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+
+    solo_valencia = storage.buscar_convocatorias(ambito="ES523")
+    assert {r["doc_id"] for r in solo_valencia} == {1, 3}  # 2 (Alicante) queda fuera, 3 (ESTATAL) siempre entra
+
+    sin_filtro = storage.buscar_convocatorias(ambito="Comunitat Valenciana")  # valor heredado -> permisivo
+    assert {r["doc_id"] for r in sin_filtro} == {1, 2, 3}
 
 
 @respx.mock

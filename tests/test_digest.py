@@ -12,10 +12,10 @@ def test_generar_digest_usuario_orquesta_buscar_rankear_y_guardar():
     storage.afinidad_sectorial.return_value = {}
     storage.crear_digest.return_value = "digest-xyz"
 
-    perfil = {"user_id": "user-1", "cnae": ["comercio"]}
+    perfil = {"user_id": "user-1", "cnae": ["comercio"], "ambito": "ES523"}
     resultado = generar_digest_usuario(storage, perfil, top_n=1)
 
-    storage.buscar_convocatorias.assert_called_once_with(cnae=["comercio"], limite=100)
+    storage.buscar_convocatorias.assert_called_once_with(cnae=["comercio"], ambito="ES523", limite=100)
     storage.afinidad_sectorial.assert_called_once_with("user-1")
     storage.crear_digest.assert_called_once_with("user-1", n_items=1)
 
@@ -38,4 +38,4 @@ def test_generar_digest_usuario_sin_cnae_en_el_perfil():
 
     generar_digest_usuario(storage, {"user_id": "user-2"})
 
-    storage.buscar_convocatorias.assert_called_once_with(cnae=None, limite=100)
+    storage.buscar_convocatorias.assert_called_once_with(cnae=None, ambito=None, limite=100)

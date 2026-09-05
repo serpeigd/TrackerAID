@@ -45,6 +45,32 @@ def perfil_encaja(beneficiarios: str | None, perfil: Literal["negocio", "particu
     return any("PYME" in f or ("ACTIVIDAD ECONÓMICA" in f and "NO DESARROLLAN" not in f) for f in frases)
 
 
+# Códigos NUTS3/INE de las tres provincias de la Comunitat Valenciana, tal
+# cual aparecen al principio de cada entrada de doc_fields.ambito (p.ej.
+# "ES523 - Valencia / València"). Es toda la granularidad geográfica real
+# que da BDNS hoy -- no hay municipio.
+_CODIGOS_PROVINCIA_CV = {"ES521", "ES522", "ES523"}
+
+
+def ambito_encaja(ambito_doc: list[str] | None, nivel1: str | None, provincia_buscada: str | None) -> bool:
+    """Mismo criterio que usa `buscar_convocatorias` — ver `sector_encaja`.
+
+    Filtra por provincia (código INE: ES521 Alicante, ES522 Castellón,
+    ES523 Valencia) SOLO si `provincia_buscada` es uno de esos tres
+    códigos. Cualquier otro valor -- vacío, o el texto libre que tenían
+    todos los perfiles antes de este filtro ("Comunitat Valenciana") --
+    se trata como "sin ámbito real todavía" y es permisivo, para no
+    dejar de mostrarle nada a un perfil que aún no se ha vuelto a guardar
+    con el desplegable nuevo."""
+    if nivel1 == "ESTATAL":
+        return True
+    if provincia_buscada not in _CODIGOS_PROVINCIA_CV:
+        return True
+    if not ambito_doc:
+        return True  # convocatoria sin ámbito conocido -> permisivo, no se descarta
+    return any(provincia_buscada in a for a in ambito_doc)
+
+
 class SupabaseStorage:
     def __init__(self, url: str | None = None, service_role_key: str | None = None, timeout: float = 20.0):
         self.url = (url or settings.supabase_url).rstrip("/")
@@ -125,13 +151,19 @@ class SupabaseStorage:
         """Solo lectura. Convocatorias abiertas y con plazo vigente (o sin
         plazo publicado), opcionalmente filtradas por sector.
 
-        Replica a propósito el mismo criterio permisivo del dashboard de
-        Lovable (ver su Knowledge): ESTATAL siempre aplica sin mirar
-        ámbito; si no hay forma fiable de comparar el ámbito libre del
-        perfil contra el de la convocatoria, se muestra igualmente — mejor
-        de más que ocultar una ayuda válida. `ambito` de momento no filtra
-        de verdad por esa razón, queda como parámetro para cuando exista
-        un campo de provincia/ciudad dedicado en el perfil.
+        `ambito` filtra por provincia — bug real corregido el 2026-09-05:
+        hasta entonces este parámetro existía pero nunca se aplicaba
+        (`doc_fields.ambito` es texto libre tipo "ES523 - Valencia /
+        València" y `profiles.ambito` era texto libre tipo "Comunitat
+        Valenciana"; comparar esas dos cadenas nunca coincidía con nada).
+        Ahora filtra de verdad, pero SOLO si `ambito` es uno de los tres
+        códigos de provincia de la Comunitat Valenciana (ES521 Alicante,
+        ES522 Castellón, ES523 Valencia) — es toda la granularidad
+        geográfica que da BDNS hoy, no hay municipio. Cualquier otro valor
+        (None, o el texto libre heredado) es permisivo a propósito: mejor
+        de más que ocultar una ayuda válida a un perfil que aún no se ha
+        vuelto a guardar con el código nuevo. ESTATAL siempre aplica sin
+        mirar ámbito.
 
         `cnae` filtra por subcadena, sin distinguir mayúsculas — el campo
         `cnae` de BDNS son descripciones libres, no códigos ("COMERCIO AL
@@ -171,7 +203,9 @@ class SupabaseStorage:
         candidatas = [
             f
             for f in filas
-            if sector_encaja(f.get("cnae"), cnae, f.get("nivel1")) and perfil_encaja(f.get("beneficiarios"), perfil)
+            if sector_encaja(f.get("cnae"), cnae, f.get("nivel1"))
+            and perfil_encaja(f.get("beneficiarios"), perfil)
+            and ambito_encaja(f.get("ambito"), f.get("nivel1"), ambito)
         ]
         candidatas.sort(key=lambda f: (f["deadline"] is None, f["deadline"] or ""))
 

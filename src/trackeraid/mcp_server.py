@@ -44,9 +44,11 @@ def buscar_convocatorias(
         cnae: sectores de actividad a priorizar (ej. ["comercio", "turismo"]).
             Filtra por coincidencia parcial, sin distinguir mayúsculas. Sin
             filtro si se omite.
-        ambito: ámbito geográfico de referencia (ej. "Comunitat Valenciana").
-            De momento informativo, no filtra de forma estricta — ver
-            docs/mcp-server.md.
+        ambito: código de provincia de la Comunitat Valenciana a priorizar
+            — "ES521" (Alicante), "ES522" (Castellón) o "ES523" (Valencia).
+            Es la única granularidad geográfica que da BDNS hoy, no hay
+            municipio. Cualquier otro valor (u omitirlo) no filtra por
+            ámbito.
         limite: máximo de resultados a devolver (por defecto 20).
 
     Devuelve una lista de convocatorias con título, URL oficial, importe,

@@ -21,8 +21,10 @@ MODEL_VERSION = "heuristico-v1"
 
 def generar_digest_usuario(storage: SupabaseStorage, perfil: dict[str, Any], top_n: int = 10) -> dict[str, Any]:
     """`perfil`: fila de `profiles` (necesita al menos `user_id`, y
-    opcionalmente `cnae`). Genera, puntúa y GUARDA el digest (crea
-    `digests` + `impressions`) — no envía ningún email.
+    opcionalmente `cnae` y `ambito` -- este último solo filtra de verdad
+    si es un código de provincia de la CV, ver docstring de
+    `SupabaseStorage.buscar_convocatorias`). Genera, puntúa y GUARDA el
+    digest (crea `digests` + `impressions`) — no envía ningún email.
 
     Devuelve {digest_id, n_items, convocatorias} para quien quiera
     componer el email o mostrarlo en el dashboard.
@@ -30,7 +32,7 @@ def generar_digest_usuario(storage: SupabaseStorage, perfil: dict[str, Any], top
     user_id = perfil["user_id"]
     cnae_perfil = perfil.get("cnae") or None
 
-    candidatas = storage.buscar_convocatorias(cnae=cnae_perfil, limite=100)
+    candidatas = storage.buscar_convocatorias(cnae=cnae_perfil, ambito=perfil.get("ambito"), limite=100)
     afinidad = storage.afinidad_sectorial(user_id)
     rankeadas = rankear(candidatas, cnae_perfil, afinidad, top_n=top_n)
 
