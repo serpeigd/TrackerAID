@@ -140,15 +140,21 @@ class SupabaseStorage:
         (como en la v1 original) nunca hacía match con nada real — bug
         real encontrado probando la tool con un cliente MCP de verdad.
 
-        `perfil` filtra por `beneficiarios` — bug real encontrado el
-        2026-09-05: hasta ahora esto no se filtraba nunca, así que un
-        autónomo/pyme (`perfil="negocio"`, el valor por defecto — es el
-        público objetivo actual del proyecto) podía ver convocatorias para
-        "personas jurídicas que no desarrollan actividad económica"
-        (asociaciones/clubes) que no puede solicitar. `perfil="particular"`
-        es el inverso, para el caso de uso de particulares/asociaciones
-        (ver ADR pendiente — todavía no es un público oficial del
-        proyecto, solo la pieza técnica para poder evaluarlo).
+        `perfil` filtra por `beneficiarios` — bug real corregido el
+        2026-09-05: hasta entonces esto no se filtraba nunca, así que un
+        autónomo/pyme (`perfil="negocio"`, el valor por defecto y el único
+        validado) podía ver convocatorias para "personas jurídicas que no
+        desarrollan actividad económica" (asociaciones/clubes) que no
+        puede solicitar.
+
+        `perfil="particular"` existe pero **no está validado — evaluado
+        contra gold set real el 2026-09-05 y sale con 1,3% de precisión**
+        (ver docs/f7-mcp-filter-eval.md). `beneficiarios` mide el tipo de
+        entidad receptora, no si la ayuda es temáticamente relevante para
+        un particular — la mayoría de lo que "encaja" son subvenciones
+        municipales nominativas a un club/asociación concreto, ruido para
+        cualquier particular real. No usar en producción hasta rediseñar
+        con otra señal.
         """
         hoy = datetime.now(UTC).date().isoformat()
         resp = self._client.get(
