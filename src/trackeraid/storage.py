@@ -23,6 +23,28 @@ class SupabaseConfigError(RuntimeError):
     """Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el entorno (.env)."""
 
 
+def sector_encaja(sectores_doc: list[str] | None, cnae_buscado: list[str] | None, nivel1: str | None) -> bool:
+    """Mismo criterio que usa `buscar_convocatorias` — factorizado aparte
+    para que el script de generación del gold set (`scripts/build_mcp_gold_candidates.py`)
+    use exactamente esta lógica y no una copia que pueda desincronizarse."""
+    if nivel1 == "ESTATAL":
+        return True
+    if not cnae_buscado or not sectores_doc:
+        return True
+    buscado_lower = [c.lower() for c in cnae_buscado]
+    return any(kw in sector.lower() for kw in buscado_lower for sector in sectores_doc)
+
+
+def perfil_encaja(beneficiarios: str | None, perfil: Literal["negocio", "particular"]) -> bool:
+    """Mismo criterio que usa `buscar_convocatorias` — ver `sector_encaja`."""
+    if not beneficiarios:
+        return True  # desconocido -> permisivo, mismo criterio que el resto de filtros
+    frases = [f.upper() for f in beneficiarios.split(" | ")]
+    if perfil == "particular":
+        return any("NO DESARROLLAN ACTIVIDAD ECONÓMICA" in f for f in frases)
+    return any("PYME" in f or ("ACTIVIDAD ECONÓMICA" in f and "NO DESARROLLAN" not in f) for f in frases)
+
+
 class SupabaseStorage:
     def __init__(self, url: str | None = None, service_role_key: str | None = None, timeout: float = 20.0):
         self.url = (url or settings.supabase_url).rstrip("/")
@@ -84,6 +106,15 @@ class SupabaseStorage:
         content_range = resp.headers.get("content-range", "*/0")
         return int(content_range.split("/")[-1])
 
+    def select_raw(self, tabla: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        """Lectura genérica vía PostgREST — para scripts de análisis/gold
+        set que necesitan columnas o filtros que los métodos de arriba no
+        cubren. `buscar_convocatorias` sigue siendo la fuente de verdad
+        para lo que expone la tool MCP; esto es solo para inspección."""
+        resp = self._client.get(f"/{tabla}", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
     def buscar_convocatorias(
         self,
         cnae: list[str] | None = None,
@@ -131,28 +162,11 @@ class SupabaseStorage:
         resp.raise_for_status()
         filas = resp.json()
 
-        cnae_buscado = [c.lower() for c in cnae] if cnae else None
-
-        def encaja_sector(fila: dict[str, Any]) -> bool:
-            if fila.get("nivel1") == "ESTATAL":
-                return True
-            sectores_doc = fila.get("cnae") or []
-            if not cnae_buscado or not sectores_doc:
-                return True
-            return any(kw in sector.lower() for kw in cnae_buscado for sector in sectores_doc)
-
-        def encaja_perfil(fila: dict[str, Any]) -> bool:
-            beneficiarios = fila.get("beneficiarios")
-            if not beneficiarios:
-                return True  # desconocido -> permisivo, mismo criterio que el resto
-            frases = [f.upper() for f in beneficiarios.split(" | ")]
-            if perfil == "particular":
-                return any("NO DESARROLLAN ACTIVIDAD ECONÓMICA" in f for f in frases)
-            return any(
-                "PYME" in f or ("ACTIVIDAD ECONÓMICA" in f and "NO DESARROLLAN" not in f) for f in frases
-            )
-
-        candidatas = [f for f in filas if encaja_sector(f) and encaja_perfil(f)]
+        candidatas = [
+            f
+            for f in filas
+            if sector_encaja(f.get("cnae"), cnae, f.get("nivel1")) and perfil_encaja(f.get("beneficiarios"), perfil)
+        ]
         candidatas.sort(key=lambda f: (f["deadline"] is None, f["deadline"] or ""))
 
         return [
