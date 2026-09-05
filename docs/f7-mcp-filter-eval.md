@@ -45,3 +45,28 @@ retira del producto. No afecta a usuarios reales: `is_published=false`.
 
 `buscar_convocatorias(perfil="negocio")` (el uso por defecto, y el único
 validado) no necesita cambios.
+
+## Corrección 2026-09-05: los 3 falsos positivos de comercio
+
+Los 3 falsos positivos de `negocio/comercio` (precisión 0,824) resultaron
+ser el mismo patrón: premios y concursos ("Premios al uso del valenciano
+en el comercio local", "Concurso de escaparatismo…") con el mismo `cnae`
+y `beneficiarios` que una ayuda económica real, pero que no lo son.
+Comprobado contra las 10 candidatas de todo el gold set (negocio +
+particular) con "premio", "concurso" o "certamen" en el título: **10/10
+estaban etiquetadas como NO relevantes**, sin excepción — señal limpia,
+aunque la muestra es pequeña.
+
+Añadido `es_premio_o_concurso()` en `storage.py`, que excluye por título.
+Recalculado contra el mismo gold set etiquetado:
+
+| Grupo | precisión antes | precisión ahora | recall |
+|---|---|---|---|
+| negocio/comercio | 0,824 | **0,933** | 1,000 (sin cambios) |
+
+Queda **1 falso positivo residual** (doc 1126892): el título de BDNS trae
+un error tipográfico real, "PEMIOS" en vez de "PREMIOS", que no coincide
+con la palabra clave. No se ha añadido una variante para esa errata
+concreta — sería ajustar la regla a un solo caso conocido, no una señal
+generalizable; se deja documentado como límite aceptado en vez de
+perseguir el 100% con una regla frágil.

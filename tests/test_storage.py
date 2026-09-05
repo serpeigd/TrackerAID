@@ -4,7 +4,12 @@ import httpx
 import pytest
 import respx
 
-from trackeraid.storage import SupabaseConfigError, SupabaseStorage, ambito_encaja
+from trackeraid.storage import (
+    SupabaseConfigError,
+    SupabaseStorage,
+    ambito_encaja,
+    es_premio_o_concurso,
+)
 
 BASE_URL = "https://example.supabase.co"
 
@@ -251,6 +256,56 @@ def test_buscar_convocatorias_filtra_por_provincia_del_ambito():
 
     sin_filtro = storage.buscar_convocatorias(ambito="Comunitat Valenciana")  # valor heredado -> permisivo
     assert {r["doc_id"] for r in sin_filtro} == {1, 2, 3}
+
+
+def test_es_premio_o_concurso_detecta_las_tres_palabras():
+    assert es_premio_o_concurso("Premios al uso del valenciano en el comercio local") is True
+    assert es_premio_o_concurso("Concurso de escaparatismo y ambientación comercial") is True
+    assert es_premio_o_concurso("Certamen Benicàssim Belle Époque - fotografía") is True
+
+
+def test_es_premio_o_concurso_no_afecta_a_una_ayuda_real():
+    assert es_premio_o_concurso("Ayudas a la digitalización de pymes del comercio minorista") is False
+
+
+@respx.mock
+def test_buscar_convocatorias_excluye_premios_y_concursos():
+    respx.get(f"{BASE_URL}/rest/v1/doc_fields").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "doc_id": 1,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": None,
+                    "nivel1": None,
+                    "cnae": ["COMERCIO AL POR MAYOR Y AL POR MENOR"],
+                    "documents": {
+                        "title": "Premios al uso del valenciano en el comercio local 2026",
+                        "source_url": "u1",
+                        "published_at": None,
+                    },
+                },
+                {
+                    "doc_id": 2,
+                    "importe": None,
+                    "deadline": None,
+                    "ambito": None,
+                    "nivel1": None,
+                    "cnae": ["COMERCIO AL POR MAYOR Y AL POR MENOR"],
+                    "documents": {
+                        "title": "Ayudas a la digitalización del comercio minorista",
+                        "source_url": "u2",
+                        "published_at": None,
+                    },
+                },
+            ],
+        )
+    )
+    storage = SupabaseStorage(url=BASE_URL, service_role_key="fake-key")
+    resultado = storage.buscar_convocatorias(cnae=["comercio"])
+    assert [r["doc_id"] for r in resultado] == [2]
 
 
 @respx.mock

@@ -71,6 +71,24 @@ def ambito_encaja(ambito_doc: list[str] | None, nivel1: str | None, provincia_bu
     return any(provincia_buscada in a for a in ambito_doc)
 
 
+# Título, no cnae/beneficiarios: un premio o concurso puede tener el
+# mismo sector y los mismos beneficiarios que una ayuda económica real,
+# solo se distingue por lo que es literalmente. Evidencia (gold set real,
+# 2026-09-05): 10/10 candidatas con alguna de estas palabras en el título
+# estaban etiquetadas como NO relevantes -- son los 3 falsos positivos
+# del grupo comercio (ver docs/f7-mcp-filter-eval.md) más 7 del grupo
+# particular. Muestra pequeña (n=10): a vigilar si el gold set crece y
+# aparece un falso negativo legítimo (p.ej. "Premios a la innovación
+# empresarial" sí sería una ayuda económica real).
+_PALABRAS_PREMIO_CONCURSO = ("premio", "concurso", "certamen")
+
+
+def es_premio_o_concurso(titulo: str) -> bool:
+    """Mismo criterio que usa `buscar_convocatorias` — ver `sector_encaja`."""
+    t = titulo.lower()
+    return any(p in t for p in _PALABRAS_PREMIO_CONCURSO)
+
+
 class SupabaseStorage:
     def __init__(self, url: str | None = None, service_role_key: str | None = None, timeout: float = 20.0):
         self.url = (url or settings.supabase_url).rstrip("/")
@@ -187,6 +205,12 @@ class SupabaseStorage:
         municipales nominativas a un club/asociación concreto, ruido para
         cualquier particular real. No usar en producción hasta rediseñar
         con otra señal.
+
+        Excluye premios y concursos (título con "premio", "concurso" o
+        "certamen") — bug real corregido el 2026-09-05: comparten `cnae`
+        y `beneficiarios` con una ayuda económica real, pero no son
+        dinero para la actividad del negocio (ver `es_premio_o_concurso`;
+        eran los 3 falsos positivos del grupo comercio del gold set).
         """
         hoy = datetime.now(UTC).date().isoformat()
         resp = self._client.get(
@@ -206,6 +230,7 @@ class SupabaseStorage:
             if sector_encaja(f.get("cnae"), cnae, f.get("nivel1"))
             and perfil_encaja(f.get("beneficiarios"), perfil)
             and ambito_encaja(f.get("ambito"), f.get("nivel1"), ambito)
+            and not es_premio_o_concurso(f["documents"]["title"])
         ]
         candidatas.sort(key=lambda f: (f["deadline"] is None, f["deadline"] or ""))
 

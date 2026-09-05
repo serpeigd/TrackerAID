@@ -26,7 +26,7 @@ import csv
 from pathlib import Path
 from typing import Any
 
-from trackeraid.storage import SupabaseStorage, perfil_encaja, sector_encaja
+from trackeraid.storage import SupabaseStorage, es_premio_o_concurso, perfil_encaja, sector_encaja
 
 OUT = Path("data/gold/mcp_candidates.csv")
 
@@ -62,8 +62,10 @@ def main() -> None:
         for f in filas_raw:
             if not _coincide_grupo(f.get("cnae"), claves):
                 continue
-            prediccion = sector_encaja(f.get("cnae"), claves, f.get("nivel1")) and perfil_encaja(
-                f.get("beneficiarios"), perfil
+            prediccion = (
+                sector_encaja(f.get("cnae"), claves, f.get("nivel1"))
+                and perfil_encaja(f.get("beneficiarios"), perfil)
+                and not es_premio_o_concurso(f["documents"]["title"])
             )
             candidatas.append(
                 {
