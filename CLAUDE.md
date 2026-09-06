@@ -38,9 +38,15 @@ número que queda mal. Hoy el que queda mal es `recall@20 = 0,153`, junto a
 Lo mismo con el plazo: el 8,7% que no se resuelve se marca como no resuelto,
 no se adivina. La fecha vive en el PDF de las bases, que este pipeline no abre.
 
-## Estado (2026-08-13)
+## Estado (2026-09-06, ver README "Roadmap" para la tabla completa)
 
-F0, F1 y F2 completadas; F3 en marcha.
+F0, F1 y F2 completadas. F3 (pipeline + API + scaffold n8n) construida pero
+sin cerrar (falta email verificado SPF/DKIM/DMARC). F4 (app en Lovable) y F6
+(bucle de feedback) construidas y probadas contra Supabase real, ambas
+todavía abiertas — F4 sin publicar (`is_published=false`, pendiente revisión
+legal de `/privacidad`), F6 sin envío de email ni programación semanal.
+Además del roadmap original: servidor MCP (`buscar_convocatorias`, solo
+lectura, solo `perfil="negocio"`) y filtro real de ámbito por provincia (F8).
 
 - **F1**: cobertura de campos medida, gold set completo (443/450 pares
   confirmados a mano), baseline BM25 evaluado. Resultados en
@@ -51,9 +57,22 @@ F0, F1 y F2 completadas; F3 en marcha.
 - **F3**: ya están el pipeline de ingesta a Supabase (`pipeline.py`), la API
   FastAPI (`api.py`) y el scaffold de n8n. Falta el email verificado
   (SPF/DKIM/DMARC), así que la fase **no** está cerrada.
+- **F6**: `ranking.py` (heurística de sector + urgencia + afinidad) y
+  `digest.py` (genera y guarda el digest en Supabase) ya usan por primera
+  vez las tablas `digests`/`impressions`/`feedback`. Falta el envío real del
+  email y la programación semanal. Detalle en `docs/f6-feedback-loop.md`.
+- **Servidor MCP** (`mcp_server.py`): expone `buscar_convocatorias` solo
+  lectura. Evaluado contra gold set real (`docs/f7-mcp-filter-eval.md`):
+  `perfil="negocio"` funciona (precisión 0,893, recall 1,00); un segundo
+  perfil "particular" se probó y se descartó (precisión 1,3%) — no se
+  expone en la tool.
+- **F8**: filtro real de ámbito por provincia (BDNS solo da esa
+  granularidad, no municipio). Detalle en `docs/f8-filtro-ambito.md`.
 
-Los scripts del stack (`scripts/start-pipeline-stack.ps1` y su pareja) son
-PowerShell, atados al entorno de desarrollo actual.
+README es la fuente más completa y actualizada del estado del proyecto —
+consúltalo antes de asumir que esta sección está al día. Los scripts del
+stack de F3 (`scripts/start-pipeline-stack.ps1` y su pareja) son PowerShell,
+atados al entorno de desarrollo actual.
 
 ## Sobre la tarea programada de sincronización de docs
 
@@ -80,6 +99,10 @@ PowerShell, atados al entorno de desarrollo actual.
 | Extracción de plazo (regex + LLM local) | `src/trackeraid/extraction/deadline.py`, `llm_ollama.py` |
 | Baseline BM25 y métricas de IR | `src/trackeraid/retrieval/bm25.py`, `metrics.py` |
 | Orquestación de la ingesta semanal | `src/trackeraid/pipeline.py` |
+| Persistencia en Supabase + filtros de `buscar_convocatorias` | `src/trackeraid/storage.py` |
+| Ranking heurístico del digest (sector + urgencia + afinidad) | `src/trackeraid/ranking.py` |
+| Genera y guarda el digest de un usuario (bucle de feedback, F6) | `src/trackeraid/digest.py` |
+| Servidor MCP (`buscar_convocatorias` como tool) | `src/trackeraid/mcp_server.py` |
 | API que dispara n8n | `src/trackeraid/api.py` |
 | Configuración centralizada (único sitio que lee entorno) | `src/trackeraid/config.py` |
 | Decisiones de arquitectura | `docs/adr/` |

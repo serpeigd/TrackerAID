@@ -24,7 +24,7 @@ El servidor habla por `stdio` (proceso local) — no necesita hosting ni
 internet para esta prueba. Regístralo en tu propio Claude Code:
 
 ```bash
-claude mcp add trackeraid -- "C:\Users\sergi\OneDrive\Escritorio\OTROS\Projects\Claude_Project\MotionOcean\.venv\Scripts\python.exe" -m trackeraid.mcp_server
+claude mcp add trackeraid -- "<ruta-a-tu-venv>\Scripts\python.exe" -m trackeraid.mcp_server
 ```
 
 Reinicia Claude Code (o abre una sesión nueva) y pregunta algo como:
