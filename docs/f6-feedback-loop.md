@@ -15,9 +15,14 @@ roadmap original del `CLAUDE.md` del proyecto.
   envía ningún email todavía.
 - **`SupabaseStorage`**: `crear_digest`, `registrar_impresiones`,
   `registrar_feedback`, `afinidad_sectorial`.
-- **`GET /feedback?impression_id=...&label=up|down|saved|clicked`**: GET
-  a propósito (no POST) — tiene que poder dispararse desde un enlace de
-  email de un solo clic, sin formulario ni JavaScript.
+- **`GET /feedback?impression_id=...&label=up|down|saved|clicked&sig=...`**:
+  GET a propósito (no POST) — tiene que poder dispararse desde un enlace
+  de email de un solo clic, sin formulario ni JavaScript. `sig` es una
+  firma HMAC del `impression_id` (corrección 2026-09-05, ver
+  `src/trackeraid/auth.py`): sin ella, cualquiera que adivine o
+  intercepte un `impression_id` podría registrar feedback falso —
+  `digest.py` genera cada `impression_id` en Python y lo firma antes de
+  guardarlo, así el enlace ya sale firmado en el digest.
 
 ## Bug real encontrado probando contra Supabase de verdad, no solo mocks
 

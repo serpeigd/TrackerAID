@@ -45,6 +45,11 @@ después para saber cómo fue. El workflow tiene 5 nodos, no 3:
    - URL: `http://host.docker.internal:8000/pipeline/ingest`
      (`host.docker.internal` es como un contenedor Docker Desktop en
      Windows/Mac alcanza el host — no uses `localhost`)
+   - Header: `X-Ingest-Token: <el valor de INGEST_TOKEN en tu .env>` —
+     desde que existe (ver auth.py), el endpoint rechaza con 401 cualquier
+     petición sin este token o con uno incorrecto (fail-closed, incluso
+     si se te olvida configurarlo). Créalo como credential tipo "Header
+     Auth" en n8n para no dejarlo en texto plano en el nodo.
    - Body (JSON): `{"dias": 7, "con_llm": true, "max_convocatorias": 300}`
    - Responde en menos de un segundo (`{"iniciado": true}`) — no hace
      falta tocar el timeout por defecto aquí.
@@ -124,6 +129,7 @@ o los dos pasos sueltos si prefieres controlarlo tú:
 ```bash
 curl -X POST http://localhost:8000/pipeline/ingest \
   -H "Content-Type: application/json" \
+  -H "X-Ingest-Token: <el valor de INGEST_TOKEN en tu .env>" \
   -d '{"dias": 7, "con_llm": true, "max_convocatorias": 20}'
 # -> {"iniciado": true, "mensaje": "..."} al instante
 
@@ -166,7 +172,7 @@ propósito.
   Schedule Trigger de n8n por un cron de GitHub Actions) — pospuesto a
   propósito, no es necesario para probar el pipeline de punta a punta
   ahora.
-- **Autenticación del endpoint**: `/pipeline/ingest` no tiene ninguna
-  protección todavía (cualquiera que alcance el puerto 8000 puede
-  dispararlo). Aceptable mientras corre solo en local; añadir una API key
-  simple antes de exponerlo fuera de tu máquina.
+- ~~**Autenticación del endpoint**~~ — resuelto: `/pipeline/ingest`
+  exige la cabecera `X-Ingest-Token` (ver arriba y `src/trackeraid/auth.py`).
+  Sigue pendiente para producción real (F5): rotar el token si se filtra,
+  y servir la API por HTTPS (hoy el token viaja en claro por HTTP local).

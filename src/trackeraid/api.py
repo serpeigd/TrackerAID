@@ -17,9 +17,10 @@ import threading
 from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from trackeraid.auth import feedback_valido, verificar_ingest_token
 from trackeraid.pipeline import ResumenIngesta, ingerir
 from trackeraid.storage import SupabaseStorage
 
@@ -121,12 +122,24 @@ def _ejecutar_ingesta(dias: int, con_llm: bool, max_convocatorias: int) -> None:
         _estado_pipeline.marcar_error(str(e))
 
 
+def _requiere_ingest_token(x_ingest_token: str = Header(default="", alias="X-Ingest-Token")) -> None:
+    """Dependency de FastAPI: solo n8n conoce `INGEST_TOKEN`, así que solo
+    n8n puede disparar la ingesta. Ver `auth.py`."""
+    if not verificar_ingest_token(x_ingest_token):
+        raise HTTPException(status_code=401, detail="Token de ingesta inválido o no configurado (X-Ingest-Token).")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/pipeline/ingest", response_model=IngestaIniciadaResponse, status_code=202)
+@app.post(
+    "/pipeline/ingest",
+    response_model=IngestaIniciadaResponse,
+    status_code=202,
+    dependencies=[Depends(_requiere_ingest_token)],
+)
 def pipeline_ingest(body: IngestaRequest, background_tasks: BackgroundTasks) -> IngestaIniciadaResponse:
     """Lanza la ingesta en segundo plano y responde al instante (202).
     Consulta el resultado con GET /pipeline/status más adelante."""
@@ -148,10 +161,18 @@ def pipeline_status() -> EstadoResponse:
 
 
 @app.get("/feedback")
-def registrar_feedback(impression_id: str, label: EtiquetaFeedback) -> dict[str, str]:
+def registrar_feedback(impression_id: str, label: EtiquetaFeedback, sig: str) -> dict[str, str]:
     """GET a propósito, no POST: tiene que poder dispararse con un solo
     clic desde un enlace de email (👍/👎 en el digest semanal), sin
-    formulario ni JavaScript de por medio."""
+    formulario ni JavaScript de por medio.
+
+    `sig`: HMAC del `impression_id`, generada al crear el digest
+    (`digest.py`) y verificada aquí (`auth.feedback_valido`) — sin ella,
+    cualquiera que adivine o vea un `impression_id` (incluido un
+    rastreador de enlaces del propio cliente de correo) podría registrar
+    feedback falso sin que el usuario hiciera clic."""
+    if not feedback_valido(impression_id, sig):
+        raise HTTPException(status_code=401, detail="Firma inválida.")
     try:
         with SupabaseStorage() as storage:
             storage.registrar_feedback(impression_id, label)

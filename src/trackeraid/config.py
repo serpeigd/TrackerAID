@@ -27,6 +27,8 @@ class Settings:
     supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     ollama_url: str = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+    ingest_token: str = os.getenv("INGEST_TOKEN", "")
+    feedback_hmac_secret: str = os.getenv("FEEDBACK_HMAC_SECRET", "")
 
 
 settings = Settings()

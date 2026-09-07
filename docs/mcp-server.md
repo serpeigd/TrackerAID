@@ -52,8 +52,11 @@ que un agente en la nube lo llame, hace falta:
 1. Transporte HTTP en vez de stdio (`mcp.run(transport="streamable-http")`).
 2. Un host público — mismo requisito que ya teníamos pendiente para F5
    (Railway/Fly.io free tier).
-3. Una API key simple — mismo pendiente ya anotado en
-   `docs/n8n-setup.md` para `/pipeline/ingest`.
+3. Autenticación propia — el servidor MCP habla con `SupabaseStorage`
+   directamente, sin pasar por `api.py`, así que el `X-Ingest-Token` que
+   ya protege `POST /pipeline/ingest` (ver `docs/n8n-setup.md` y
+   `src/trackeraid/auth.py`) no le sirve; necesitaría su propio mecanismo
+   si se expone fuera de la máquina.
 
 No es trabajo nuevo: es la misma pieza de infraestructura que llevamos
 aplazando, ahora con una razón más concreta para resolverla.

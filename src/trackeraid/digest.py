@@ -11,8 +11,10 @@ avisos de error).
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
+from trackeraid.auth import firmar_impression_id
 from trackeraid.ranking import rankear
 from trackeraid.storage import SupabaseStorage
 
@@ -26,8 +28,15 @@ def generar_digest_usuario(storage: SupabaseStorage, perfil: dict[str, Any], top
     `SupabaseStorage.buscar_convocatorias`). Genera, puntúa y GUARDA el
     digest (crea `digests` + `impressions`) — no envía ningún email.
 
+    Cada `impression_id` se genera aquí, en Python (no lo asigna
+    Supabase) -- así se puede firmar con HMAC (`auth.firmar_impression_id`)
+    ANTES de insertarlo, para componer el enlace de feedback de un clic
+    (`GET /feedback?impression_id=...&sig=...`) sin tener que volver a
+    leer la fila recién creada.
+
     Devuelve {digest_id, n_items, convocatorias} para quien quiera
-    componer el email o mostrarlo en el dashboard.
+    componer el email o mostrarlo en el dashboard -- cada convocatoria
+    lleva ya su `impression_id` y `feedback_sig`.
     """
     user_id = perfil["user_id"]
     cnae_perfil = perfil.get("cnae") or None
@@ -37,18 +46,24 @@ def generar_digest_usuario(storage: SupabaseStorage, perfil: dict[str, Any], top
     rankeadas = rankear(candidatas, cnae_perfil, afinidad, top_n=top_n)
 
     digest_id = storage.crear_digest(user_id, n_items=len(rankeadas))
-    storage.registrar_impresiones(
-        digest_id,
-        user_id,
-        [
+
+    filas = []
+    convocatorias = []
+    for i, c in enumerate(rankeadas):
+        impression_id = str(uuid.uuid4())
+        filas.append(
             {
+                "impression_id": impression_id,
                 "doc_id": c["doc_id"],
                 "position": i,
                 "score": round(c["score"], 4),
                 "model_version": MODEL_VERSION,
                 "features_json": {"cnae": c.get("cnae"), "fecha_limite": c.get("fecha_limite")},
             }
-            for i, c in enumerate(rankeadas)
-        ],
-    )
-    return {"digest_id": digest_id, "n_items": len(rankeadas), "convocatorias": rankeadas}
+        )
+        convocatorias.append(
+            {**c, "impression_id": impression_id, "feedback_sig": firmar_impression_id(impression_id)}
+        )
+
+    storage.registrar_impresiones(digest_id, user_id, filas)
+    return {"digest_id": digest_id, "n_items": len(rankeadas), "convocatorias": convocatorias}

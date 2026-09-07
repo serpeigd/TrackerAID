@@ -1,11 +1,32 @@
+import hashlib
+import hmac
+from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from trackeraid.api import app
 from trackeraid.pipeline import ResumenIngesta
 
 client = TestClient(app)
+
+INGEST_TOKEN = "test-ingest-token"
+FEEDBACK_SECRET = "test-feedback-secret"
+
+
+def _sig(impression_id: str) -> str:
+    return hmac.new(FEEDBACK_SECRET.encode(), impression_id.encode(), hashlib.sha256).hexdigest()
+
+
+@pytest.fixture(autouse=True)
+def _secretos_de_prueba(monkeypatch):
+    # auth.py lee `settings` en su propio namespace -- parchear aquí, no en
+    # trackeraid.config, es el mismo patrón que ya usa test_storage.py.
+    monkeypatch.setattr(
+        "trackeraid.auth.settings",
+        SimpleNamespace(ingest_token=INGEST_TOKEN, feedback_hmac_secret=FEEDBACK_SECRET),
+    )
 
 
 def test_health():
@@ -17,47 +38,73 @@ def test_health():
 def test_feedback_registra_y_devuelve_ok():
     with patch("trackeraid.api.SupabaseStorage") as mock_storage_cls:
         mock_storage = mock_storage_cls.return_value.__enter__.return_value
-        r = client.get("/feedback", params={"impression_id": "imp-1", "label": "up"})
+        r = client.get("/feedback", params={"impression_id": "imp-1", "label": "up", "sig": _sig("imp-1")})
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
     mock_storage.registrar_feedback.assert_called_once_with("imp-1", "up")
 
 
 def test_feedback_rechaza_una_etiqueta_invalida():
-    r = client.get("/feedback", params={"impression_id": "imp-1", "label": "algo_raro"})
+    r = client.get("/feedback", params={"impression_id": "imp-1", "label": "algo_raro", "sig": _sig("imp-1")})
     assert r.status_code == 422
+
+
+def test_feedback_rechaza_firma_invalida():
+    r = client.get("/feedback", params={"impression_id": "imp-1", "label": "up", "sig": "firma-inventada"})
+    assert r.status_code == 401
+
+
+def test_feedback_rechaza_firma_de_otro_impression_id():
+    # La firma es válida, pero para otro impression_id -- no vale para
+    # "resignificar" un enlace ya emitido a un doc_id distinto.
+    r = client.get("/feedback", params={"impression_id": "imp-1", "label": "up", "sig": _sig("imp-2")})
+    assert r.status_code == 401
 
 
 def test_feedback_devuelve_500_si_supabase_falla():
     with patch("trackeraid.api.SupabaseStorage") as mock_storage_cls:
         mock_storage_cls.return_value.__enter__.return_value.registrar_feedback.side_effect = RuntimeError("caído")
-        r = client.get("/feedback", params={"impression_id": "imp-1", "label": "down"})
+        r = client.get("/feedback", params={"impression_id": "imp-1", "label": "down", "sig": _sig("imp-1")})
     assert r.status_code == 500
 
 
 def test_pipeline_ingest_responde_al_instante_202():
     with patch("trackeraid.api.ingerir", return_value=ResumenIngesta()):
-        r = client.post("/pipeline/ingest", json={"dias": 7, "con_llm": True, "max_convocatorias": 50})
+        r = client.post(
+            "/pipeline/ingest",
+            json={"dias": 7, "con_llm": True, "max_convocatorias": 50},
+            headers={"X-Ingest-Token": INGEST_TOKEN},
+        )
     assert r.status_code == 202
     assert r.json()["iniciado"] is True
 
 
 def test_pipeline_ingest_usa_valores_por_defecto():
     with patch("trackeraid.api.ingerir", return_value=ResumenIngesta()) as mock_ingerir:
-        client.post("/pipeline/ingest", json={})
+        client.post("/pipeline/ingest", json={}, headers={"X-Ingest-Token": INGEST_TOKEN})
         # TestClient ejecuta las BackgroundTasks antes de devolver la respuesta
         mock_ingerir.assert_called_once_with(dias=14, con_llm=True, max_convocatorias=200)
 
 
 def test_pipeline_ingest_rechaza_dias_fuera_de_rango():
-    r = client.post("/pipeline/ingest", json={"dias": 0})
+    r = client.post("/pipeline/ingest", json={"dias": 0}, headers={"X-Ingest-Token": INGEST_TOKEN})
     assert r.status_code == 422
+
+
+def test_pipeline_ingest_rechaza_sin_token():
+    r = client.post("/pipeline/ingest", json={})
+    assert r.status_code == 401
+
+
+def test_pipeline_ingest_rechaza_token_incorrecto():
+    r = client.post("/pipeline/ingest", json={}, headers={"X-Ingest-Token": "token-equivocado"})
+    assert r.status_code == 401
 
 
 def test_status_refleja_una_ingesta_completada():
     resumen_falso = ResumenIngesta(procesadas=5, guardadas=5, con_plazo_resuelto=4, metodo_llm_usado=1)
     with patch("trackeraid.api.ingerir", return_value=resumen_falso):
-        client.post("/pipeline/ingest", json={})
+        client.post("/pipeline/ingest", json={}, headers={"X-Ingest-Token": INGEST_TOKEN})
 
     r = client.get("/pipeline/status")
     assert r.status_code == 200
@@ -70,7 +117,7 @@ def test_status_refleja_una_ingesta_completada():
 
 def test_status_refleja_un_fallo_sin_tumbar_el_proceso():
     with patch("trackeraid.api.ingerir", side_effect=RuntimeError("BDNS caído")):
-        r = client.post("/pipeline/ingest", json={})
+        r = client.post("/pipeline/ingest", json={}, headers={"X-Ingest-Token": INGEST_TOKEN})
     assert r.status_code == 202  # la petición se acepta igual, el fallo es asíncrono
 
     r = client.get("/pipeline/status")
